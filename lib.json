@@ -1,0 +1,13 @@
+{
+    "id": "kristal-debug-tools",
+    "version": "v0.1.0",
+    "engineVer": "v0.10.0",
+    "authors": ["Bli-AIk"],
+    "config": {
+        "enabled": true,
+        "only_dev": true,
+        "default_encounter": null,
+        "initial_tp": null,
+        "initial_mercy": null
+    }
+}

@@ -1,0 +1,201 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+    printf '%s\n' \
+        'usage: kristal-run [--encounter [id]|-e [id]] [--wave selector|-w selector] [--wave-force selector|-wf selector]' \
+        '                   [--tp n|--initial-tp n|-tp n] [--mercy n|--initial-mercy n|-m n]' \
+        '' \
+        '  --encounter, -e       Start directly in an encounter.' \
+        '  --wave, -w            Select a wave for the first defending phase.' \
+        '  --wave-force, -wf     Select the same wave for every defending phase.' \
+        '  --tp, --initial-tp    Set the starting battle TP. Use -tp as shorthand.' \
+        '  --mercy, --initial-mercy, -m' \
+        '                         Set the starting enemy mercy from 0 to 100.' \
+        '  --                    Stop parsing launcher options and pass the rest to Kristal.'
+}
+
+find_mod_root() {
+    local candidate
+    local parent
+    candidate=$(pwd -P)
+    while :; do
+        if [ -f "$candidate/mod.json" ]; then
+            printf '%s\n' "$candidate"
+            return 0
+        fi
+        parent=$(dirname "$candidate")
+        if [ "$parent" = "$candidate" ]; then
+            break
+        fi
+        candidate=$parent
+    done
+    return 1
+}
+
+require_value() {
+    local flag=$1
+    local value=${2:-}
+    if [ -z "$value" ]; then
+        printf '%s requires a value.\n' "$flag" >&2
+        exit 64
+    fi
+    printf '%s\n' "$value"
+}
+
+mod_root=${KRISTAL_MOD_ROOT:-}
+if [ -z "$mod_root" ]; then
+    mod_root=$(find_mod_root) || {
+        printf '%s\n' 'Could not find mod.json. Run this command from a Kristal project or set KRISTAL_MOD_ROOT.' >&2
+        exit 1
+    }
+fi
+mod_root=$(CDPATH= cd -- "$mod_root" && pwd -P)
+
+mod_id=$(sed -n 's/^[[:space:]]*"id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*$/\1/p' "$mod_root/mod.json" | head -n 1)
+if [ -z "$mod_id" ]; then
+    mod_id=$(basename "$mod_root")
+fi
+
+kristal_args=()
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --help|-h)
+            usage
+            exit 0
+            ;;
+        --)
+            shift
+            while [ "$#" -gt 0 ]; do
+                kristal_args+=("$1")
+                shift
+            done
+            break
+            ;;
+        --encounter=*)
+            value=${1#--encounter=}
+            if [ -n "$value" ]; then
+                kristal_args+=(--encounter "$value")
+            else
+                kristal_args+=(--encounter)
+            fi
+            shift
+            ;;
+        --encounter|-e)
+            if [ "$#" -gt 1 ] && [[ "$2" != -* ]]; then
+                kristal_args+=(--encounter "$2")
+                shift 2
+            else
+                kristal_args+=(--encounter)
+                shift
+            fi
+            ;;
+        -e?*)
+            kristal_args+=(--encounter "${1#-e}")
+            shift
+            ;;
+        --wave=*)
+            kristal_args+=(--wave "$(require_value --wave "${1#--wave=}")")
+            shift
+            ;;
+        --wave|-w)
+            [ "$#" -gt 1 ] || { printf '%s\n' "$1 requires a value." >&2; exit 64; }
+            kristal_args+=(--wave "$2")
+            shift 2
+            ;;
+        -w?*)
+            kristal_args+=(--wave "$(require_value -w "${1#-w}")")
+            shift
+            ;;
+        --wave-force=*)
+            kristal_args+=(--wave-force "$(require_value --wave-force "${1#--wave-force=}")")
+            shift
+            ;;
+        --wave-force|-wf)
+            [ "$#" -gt 1 ] || { printf '%s\n' "$1 requires a value." >&2; exit 64; }
+            kristal_args+=(--wave-force "$2")
+            shift 2
+            ;;
+        -wf?*)
+            kristal_args+=(--wave-force "$(require_value -wf "${1#-wf}")")
+            shift
+            ;;
+        --initial-tp=*|--tp=*)
+            kristal_args+=(--tp "$(require_value --tp "${1#*=}")")
+            shift
+            ;;
+        --initial-tp|--tp|-tp)
+            [ "$#" -gt 1 ] || { printf '%s\n' "$1 requires a value." >&2; exit 64; }
+            kristal_args+=(--tp "$2")
+            shift 2
+            ;;
+        -tp?*)
+            kristal_args+=(--tp "$(require_value -tp "${1#-tp}")")
+            shift
+            ;;
+        --initial-mercy=*|--mercy=*)
+            kristal_args+=(--mercy "$(require_value --mercy "${1#*=}")")
+            shift
+            ;;
+        --initial-mercy|--mercy|-m)
+            [ "$#" -gt 1 ] || { printf '%s\n' "$1 requires a value." >&2; exit 64; }
+            kristal_args+=(--mercy "$2")
+            shift 2
+            ;;
+        -m?*)
+            kristal_args+=(--mercy "$(require_value -m "${1#-m}")")
+            shift
+            ;;
+        -*)
+            printf 'unknown launcher option: %s\n' "$1" >&2
+            usage >&2
+            exit 64
+            ;;
+        *)
+            kristal_args+=("$1")
+            shift
+            ;;
+    esac
+done
+
+engine_root=${KRISTAL_ROOT:-}
+if [ -z "$engine_root" ]; then
+    user_home=${HOME:-}
+    for candidate in \
+        "$mod_root/../Kristal" \
+        "$mod_root/../kristal" \
+        "$mod_root/../../Kristal" \
+        "$mod_root/../../kristal" \
+        "$user_home/Projects/LuaProjects/Kristal" \
+        "$user_home/Projects/Kristal" \
+        "$user_home/Kristal"
+    do
+        if [ -f "$candidate/main.lua" ]; then
+            engine_root=$(CDPATH= cd -- "$candidate" && pwd -P)
+            break
+        fi
+    done
+fi
+
+if [ -z "$engine_root" ]; then
+    printf '%s\n' 'Kristal engine not found. Set KRISTAL_ROOT=/path/to/Kristal.' >&2
+    exit 1
+fi
+
+if [ "${KRISTAL_DEBUG_TOOLS_DRY_RUN:-0}" = "1" ]; then
+    printf 'mod_root=%s\n' "$mod_root"
+    printf 'mod_id=%s\n' "$mod_id"
+    printf 'engine_root=%s\n' "$engine_root"
+    printf 'love'
+    printf ' %q' "$engine_root" --mod "$mod_id" --auto-mod-start "${kristal_args[@]}"
+    printf '\n'
+    exit 0
+fi
+
+if [ ! -f "$engine_root/main.lua" ]; then
+    printf 'Kristal engine main.lua not found: %s/main.lua\n' "$engine_root" >&2
+    exit 1
+fi
+
+cd "$engine_root"
+exec love "$engine_root" --mod "$mod_id" --auto-mod-start "${kristal_args[@]}"
