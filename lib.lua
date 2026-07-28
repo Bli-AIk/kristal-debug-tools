@@ -184,6 +184,9 @@ function lib:installModOptionHook()
 
     HookSystem.hook(Kristal, "getModOption", function(orig, key, ...)
         local options = self.options
+        if not options then
+            return orig(key, ...)
+        end
         if options.direct_entry and options.encounter and key == "encounter" then
             return options.encounter
         end
