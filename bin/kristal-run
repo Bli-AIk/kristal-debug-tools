@@ -160,24 +160,20 @@ done
 
 engine_root=${KRISTAL_ROOT:-}
 if [ -z "$engine_root" ]; then
-    user_home=${HOME:-}
-    for candidate in \
-        "$mod_root/../Kristal" \
-        "$mod_root/../kristal" \
-        "$mod_root/../kristal-el" \
-        "$mod_root/../../kristal-el" \
-        "$mod_root/../../Kristal" \
-        "$mod_root/../../kristal" \
-        "$user_home/Projects/LuaProjects/kristal-el" \
-        "$user_home/Projects/LuaProjects/Kristal" \
-        "$user_home/kristal-el" \
-        "$user_home/Projects/Kristal" \
-        "$user_home/Kristal"
-    do
-        if [ -f "$candidate/main.lua" ]; then
-            engine_root=$(CDPATH= cd -- "$candidate" && pwd -P)
+    # Walk up from the mod root and use the nearest ancestor that looks
+    # like a Kristal engine (main.lua + src/kristal.lua). No hardcoded
+    # project names, so any Kristal variant checkout works.
+    dir=$(CDPATH= cd -- "$mod_root" && pwd -P)
+    while :; do
+        if [ -f "$dir/main.lua" ] && [ -f "$dir/src/kristal.lua" ]; then
+            engine_root=$dir
             break
         fi
+        parent=$(dirname "$dir")
+        if [ "$parent" = "$dir" ]; then
+            break
+        fi
+        dir=$parent
     done
 fi
 
