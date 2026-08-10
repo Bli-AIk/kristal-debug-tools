@@ -164,9 +164,13 @@ if [ -z "$engine_root" ]; then
     for candidate in \
         "$mod_root/../Kristal" \
         "$mod_root/../kristal" \
+        "$mod_root/../kristal-el" \
+        "$mod_root/../../kristal-el" \
         "$mod_root/../../Kristal" \
         "$mod_root/../../kristal" \
+        "$user_home/Projects/LuaProjects/kristal-el" \
         "$user_home/Projects/LuaProjects/Kristal" \
+        "$user_home/kristal-el" \
         "$user_home/Projects/Kristal" \
         "$user_home/Kristal"
     do
