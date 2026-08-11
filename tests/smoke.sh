@@ -38,4 +38,18 @@ if dry_run --unknown >/dev/null 2>&1; then
     exit 1
 fi
 
+precedence_root=$(mktemp -d)
+trap 'rm -rf "$precedence_root"' EXIT
+mkdir -p "$precedence_root/engine/src" "$precedence_root/engine/mod"
+: > "$precedence_root/engine/main.lua"
+: > "$precedence_root/engine/src/kristal.lua"
+printf '%s\n' '{}' > "$precedence_root/engine/mod/mod.json"
+output=$(
+    KRISTAL_MOD_ROOT="$precedence_root/engine/mod" \
+    KRISTAL_DEBUG_TOOLS_DRY_RUN=1 \
+    KRISTAL_ROOT="$precedence_root/override" \
+    "$runner"
+)
+printf '%s\n' "$output" | grep -Fqx "engine_root=$precedence_root/engine"
+
 printf '%s\n' 'kristal-debug-tools smoke: PASS'

@@ -158,23 +158,26 @@ while [ "$#" -gt 0 ]; do
     esac
 done
 
-engine_root=${KRISTAL_ROOT:-}
+# Prefer the nearest matching engine in the mod's parent tree. This keeps a
+# project-local checkout authoritative even when KRISTAL_ROOT is inherited
+# from another project or shell profile.
+engine_root=
+dir=$(CDPATH= cd -- "$mod_root" && pwd -P)
+while :; do
+    if [ -f "$dir/main.lua" ] && [ -f "$dir/src/kristal.lua" ]; then
+        engine_root=$dir
+        break
+    fi
+    parent=$(dirname "$dir")
+    if [ "$parent" = "$dir" ]; then
+        break
+    fi
+    dir=$parent
+done
+
+# Fall back to an explicit engine path when the mod is outside an engine tree.
 if [ -z "$engine_root" ]; then
-    # Walk up from the mod root and use the nearest ancestor that looks
-    # like a Kristal engine (main.lua + src/kristal.lua). No hardcoded
-    # project names, so any Kristal variant checkout works.
-    dir=$(CDPATH= cd -- "$mod_root" && pwd -P)
-    while :; do
-        if [ -f "$dir/main.lua" ] && [ -f "$dir/src/kristal.lua" ]; then
-            engine_root=$dir
-            break
-        fi
-        parent=$(dirname "$dir")
-        if [ "$parent" = "$dir" ]; then
-            break
-        fi
-        dir=$parent
-    done
+    engine_root=${KRISTAL_ROOT:-}
 fi
 
 if [ -z "$engine_root" ]; then
