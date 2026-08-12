@@ -24,4 +24,10 @@ gui *args:
 gui-dev:
     @{{ if os() == "windows" { "\"" + justfile_directory() + "/gui.cmd\"" } else { "sh \"" + justfile_directory() + "/bin/gui-download.sh\" \"" + invocation_directory() + "\"" } }} compile
 
+# Developer mode with a Rust release build (first compile is slower, the
+# running app is faster).
+# zh_hans: 开发者模式，Rust 用 release 构建（首次编译慢一点，跑起来更快）
+gui-dev-release:
+    @{{ if os() == "windows" { "\"" + justfile_directory() + "/gui.cmd\"" } else { "sh \"" + justfile_directory() + "/bin/gui-download.sh\" \"" + invocation_directory() + "\"" } }} compile-release
+
 alias l := run

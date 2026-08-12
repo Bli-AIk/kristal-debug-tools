@@ -28,6 +28,7 @@ set "MODE="
 set "MODE_ARG="
 if /i "%~1"=="bin" set "MODE_ARG=bin"
 if /i "%~1"=="compile" set "MODE_ARG=compile"
+if /i "%~1"=="compile-release" set "MODE_ARG=compile-release"
 
 if defined MODE_ARG (
     set "MODE=%MODE_ARG%"
@@ -63,6 +64,7 @@ goto run-mode
 
 :run-mode
 if "%MODE%"=="compile" goto compile
+if "%MODE%"=="compile-release" goto compile
 goto download
 
 :compile
@@ -76,16 +78,22 @@ if not exist "%GUI_DIR%\.git" (
         goto compile-fail
     )
 )
-echo [kristal-debug-tools] Compiling locally (npm run tauri dev)...
+set "RELEASE_FLAG="
+if "%MODE%"=="compile-release" set "RELEASE_FLAG=--release"
+if "%MODE%"=="compile-release" (
+    echo [kristal-debug-tools] Compiling locally in release mode...
+) else (
+    echo [kristal-debug-tools] Compiling locally (npm run tauri dev)...
+)
 pushd "%GUI_DIR%"
 if not exist node_modules (
     call npm ci
     if errorlevel 1 goto compile-fail
 )
 rem tauri dev only compiles the main bin; the task list needs the sidecar.
-call cargo build --manifest-path src-tauri\Cargo.toml --bin kristal-run
+call cargo build %RELEASE_FLAG% --manifest-path src-tauri\Cargo.toml --bin kristal-run
 if errorlevel 1 goto compile-fail
-call npm run tauri dev
+call npm run tauri dev -- %RELEASE_FLAG%
 set "DEV_ERR=%ERRORLEVEL%"
 popd
 if "%DEV_ERR%"=="0" exit /b 0

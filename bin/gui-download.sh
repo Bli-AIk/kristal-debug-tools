@@ -52,7 +52,7 @@ latest_version() {
 }
 
 case "$MODE_ARG" in
-    bin|compile) MODE="$MODE_ARG"; write_mode "$MODE" ;;
+    bin|compile|compile-release) MODE="$MODE_ARG"; write_mode "$MODE" ;;
     *)
         MODE="$(read_mode)"
         if [ -z "$MODE" ] && command -v cargo >/dev/null 2>&1 && command -v node >/dev/null 2>&1; then
@@ -70,7 +70,7 @@ case "$MODE_ARG" in
         ;;
 esac
 
-if [ "$MODE" = compile ]; then
+if [ "$MODE" = compile ] || [ "$MODE" = compile-release ]; then
     if [ ! -e "$GUI_REPO_DIR/.git" ]; then
         if [ -e "$GUI_REPO_DIR" ]; then
             echo "[kristal-debug-tools] $GUI_REPO_DIR exists but is not a git checkout; remove it or clone manually." >&2
@@ -83,9 +83,15 @@ if [ "$MODE" = compile ]; then
     fi
     # tauri dev only compiles the main bin; build the kristal-run sidecar
     # first or the task list comes up empty.
+    CARGO_FLAG=""
+    DEV_FLAG=""
+    if [ "$MODE" = compile-release ]; then
+        CARGO_FLAG="--release"
+        DEV_FLAG="--release"
+    fi
     if [ -e "$GUI_REPO_DIR/.git" ] && (cd "$GUI_REPO_DIR" && { [ -d node_modules ] || npm ci; } \
-        && cargo build --manifest-path src-tauri/Cargo.toml --bin kristal-run \
-        && npm run tauri dev); then
+        && cargo build $CARGO_FLAG --manifest-path src-tauri/Cargo.toml --bin kristal-run \
+        && npm run tauri dev -- $DEV_FLAG); then
         exit 0
     fi
     echo "[kristal-debug-tools] Local compile failed, falling back to release binaries."
