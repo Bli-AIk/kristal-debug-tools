@@ -59,6 +59,15 @@ function applyI18n() {
   document.title = "Kristal Debug Tools";
 }
 
+/* Scale the whole UI (rem-based) to the display DPI: 1x → 100%, 1.5x →
+ * 125%, 2x → 160%. Re-applied on resize so moving the window between
+ * monitors with different scale factors stays comfortable. */
+function applyDpiScale() {
+  const dpr = window.devicePixelRatio || 1;
+  const scale = Math.min(1.6, Math.max(1, 0.6 + dpr * 0.5));
+  document.documentElement.style.fontSize = Math.round(16 * scale) + "px";
+}
+
 /* --- API helpers --- */
 
 async function api(path, opts) {
@@ -375,6 +384,13 @@ document.getElementById("copy-url").onclick = async () => {
     setTimeout(() => { btn.textContent = old; }, 1500);
   } catch (_) { /* clipboard unavailable in webview */ }
 };
+
+applyDpiScale();
+window.addEventListener("resize", applyDpiScale);
+if (window.matchMedia) {
+  window.matchMedia(`(resolution: ${(window.devicePixelRatio || 1).toFixed(2)}dppx)`)
+    .addEventListener("change", applyDpiScale);
+}
 
 applyI18n();
 loadStatus();
