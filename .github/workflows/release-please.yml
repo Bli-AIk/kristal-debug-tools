@@ -16,6 +16,18 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  test:
+    name: Go tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: gui/go.mod
+      # internal packages only: the window package needs webkit system libs.
+      - name: Test
+        run: (cd gui && go test ./internal/...)
+
   release-please:
     name: Open or finalize release PR
     runs-on: ubuntu-latest
@@ -25,3 +37,38 @@ jobs:
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+  build-windows:
+    name: Build Windows GUI + sidecar
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: gui/go.mod
+
+      - name: Fetch and verify pinned just
+        run: |
+          mkdir -p gui/internal/justbin dist
+          curl -fsSL -o /tmp/just.zip https://github.com/casey/just/releases/download/1.58.0/just-1.58.0-x86_64-pc-windows-msvc.zip
+          curl -fsSL https://github.com/casey/just/releases/download/1.58.0/SHA256SUMS \
+            | grep -F 'just-1.58.0-x86_64-pc-windows-msvc.zip' > /tmp/SHA256SUMS
+          (cd /tmp && sha256sum -c SHA256SUMS)
+          unzip -o /tmp/just.zip just.exe -d gui/internal/justbin
+          test -f gui/internal/justbin/just.exe
+
+      - name: Build Windows GUI (embedded just)
+        run: (cd gui && GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -H windowsgui" -tags kdt_embed_just -o ../dist/kristal-debug-tools-gui-windows-x64.exe ./cmd/kristal-debug-tools-gui)
+
+      - name: Build Windows sidecar
+        run: (cd gui && GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o ../dist/kristal-run-windows-x64.exe ./cmd/kristal-run)
+
+      - name: Attach to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.release-please.outputs.tag_name }}
+          files: dist/*.exe
+          fail_on_unmatched_files: true

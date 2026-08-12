@@ -14,6 +14,7 @@
 | `kristal`                                                                                                                  | `kristal-debug-tools` |
 | -------------------------------------------------------------------------------------------------------------------------- | --------------------- |
 | [v0.10.0](https://github.com/KristalTeam/Kristal/commit/752bc0688ba97ca8a256ba9125b7e05a1ca6edbd) (`752bc068`, 2026-06-23) | 0.1.0                 |
+| [v0.10.0](https://github.com/KristalTeam/Kristal/commit/752bc0688ba97ca8a256ba9125b7e05a1ca6edbd) (`752bc068`, 2026-06-23) | 0.2.0                 |
 
 ## Features
 
@@ -66,6 +67,36 @@ Projects may add a thin `run` recipe in their own `justfile` to shorten that com
 | `--mercy` / `--initial-mercy` / `-m` | Set starting enemy mercy from 0 to 100                                                           |
 
 All runtime behavior is development-only by default. The launcher itself is not included in player-facing packages.
+
+## Windows
+
+Windows users don't need `just` or bash preinstalled — the core workflow (launching the game) has a native implementation:
+
+### GUI (recommended)
+
+Download `kristal-debug-tools-gui-windows-x64.exe` from the [Releases](https://github.com/Bli-AIk/kristal-debug-tools/releases) page and run it. A single-window UI opens (Edge WebView2, nothing to install):
+
+- **Tasks panel** — lists every recipe of the justfile; run them with one click and watch output stream live
+- **Launch game** — form fields for `--lang / --encounter / --wave / --wave-force / --tp / --mercy`
+- **Runs log** — command, duration and exit code of past runs; cancel anytime
+
+Requirements: [LÖVE](https://love2d.org) installed (`Program Files\LOVE` or on PATH). The binaries are unsigned — choose "More info → Run anyway" if SmartScreen complains.
+
+### Command line
+
+`just.cmd` at the repo root bootstraps `just`: it uses a system install if present, otherwise downloads the pinned official binary (SHA256-verified) into `.tools\just\` on first run:
+
+```bat
+just.cmd --justfile libraries\kristal-debug-tools\justfile run --wave 2 --tp 50
+```
+
+`kristal-run.exe` (`kristal-run-windows-x64.exe` in the same Release) is a native Windows port of `bin/kristal-run` with identical behavior: drop it into `bin\` and `just run` works, or call it directly:
+
+```bat
+kristal-run.exe --wave 2 --tp 50
+```
+
+Note: `tests/smoke.sh` is a bash script — running `just test` on Windows needs Git Bash. The core workflow (launching the game) does not depend on bash.
 
 ## Development
 

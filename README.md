@@ -14,6 +14,7 @@
 | `kristal`                                                                                                                  | `kristal-debug-tools` |
 | -------------------------------------------------------------------------------------------------------------------------- | --------------------- |
 | [v0.10.0](https://github.com/KristalTeam/Kristal/commit/752bc0688ba97ca8a256ba9125b7e05a1ca6edbd) (`752bc068`, 2026-06-23) | 0.1.0                 |
+| [v0.10.0](https://github.com/KristalTeam/Kristal/commit/752bc0688ba97ca8a256ba9125b7e05a1ca6edbd) (`752bc068`, 2026-06-23) | 0.2.0                 |
 
 ## 功能
 
@@ -66,6 +67,36 @@ just --justfile libraries/kristal-debug-tools/justfile run --wave 2 --tp 50
 | `--mercy` / `--initial-mercy` / `-m` | 设置初始敌人仁慈值（0–100）                                     |
 
 所有运行时行为默认仅限开发模式；启动器本身不会进入面向玩家的发行包。
+
+## Windows
+
+Windows 用户不需要预装 `just` 或 bash——核心工作流（启动游戏）有原生实现：
+
+### GUI（推荐）
+
+从 [Releases](https://github.com/Bli-AIk/kristal-debug-tools/releases) 下载 `kristal-debug-tools-gui-windows-x64.exe`，双击运行。会打开一个单窗口界面（Edge WebView2，无需安装任何东西）：
+
+- **任务面板** —— 列出 justfile 的全部配方，点按钮运行并流式查看输出
+- **启动游戏** —— 可视化填写 `--lang / --encounter / --wave / --wave-force / --tp / --mercy`，直接拉起游戏
+- **运行记录** —— 历史运行的命令、耗时与退出码；可随时取消
+
+要求：已安装 [LÖVE](https://love2d.org)（`Program Files\LOVE` 或加入 PATH）。二进制未签名，SmartScreen 提示时选 "More info → Run anyway"。
+
+### 命令行
+
+仓库根目录的 `just.cmd` 是 `just` 的引导脚本：系统已装则直接用；否则首次运行自动下载官方固定版本（SHA256 校验）到 `.tools\just\` 并复用：
+
+```bat
+just.cmd --justfile libraries\kristal-debug-tools\justfile run --wave 2 --tp 50
+```
+
+`kristal-run.exe`（同一 Release 里的 `kristal-run-windows-x64.exe`）是 `bin/kristal-run` 的 Windows 原生移植，行为完全一致：放入 `bin\` 后 `just run` 即可用，也可直接调用：
+
+```bat
+kristal-run.exe --wave 2 --tp 50
+```
+
+注意：`tests/smoke.sh` 是 bash 脚本，Windows 上跑 `just test` 需要 Git Bash；启动游戏等核心工作流不依赖 bash。
 
 ## 开发
 

@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kristal Debug Tools</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="navbar">
+  <div class="nav-inner">
+    <span class="title">KRISTAL DEBUG TOOLS</span>
+    <span class="nav-right">
+      <button id="copy-url" class="btn">COPY URL</button>
+      <button id="lang-toggle" class="btn">EN</button>
+    </span>
+  </div>
+</header>
+
+<div id="statusbar" class="statusbar"></div>
+
+<main class="layout">
+  <section class="col">
+    <div class="broken-box panel">
+      <div class="panel-head">
+        <h2 data-i18n="tasks">TASKS</h2>
+        <button id="refresh-tasks" class="btn small" title="refresh">&#8635;</button>
+      </div>
+      <div id="task-list" class="task-list"><p class="hint" data-i18n="loading">loading…</p></div>
+    </div>
+
+    <div class="broken-box panel">
+      <h2 data-i18n="launch">LAUNCH GAME</h2>
+      <div class="form-grid">
+        <label><span data-i18n="fLang">LANGUAGE</span>
+          <input id="la-lang" placeholder="en / zh-hans" autocomplete="off"></label>
+        <label><span data-i18n="fEncounter">ENCOUNTER</span>
+          <input id="la-encounter" placeholder="encounter id" autocomplete="off"></label>
+        <label><span data-i18n="fWave">WAVE</span>
+          <input id="la-wave" placeholder="2 / wave id" autocomplete="off"></label>
+        <label><span data-i18n="fWaveForce">WAVE FORCE</span>
+          <input id="la-waveforce" autocomplete="off"></label>
+        <label><span data-i18n="fTp">TP</span>
+          <input id="la-tp" placeholder="0-100" autocomplete="off"></label>
+        <label><span data-i18n="fMercy">MERCY</span>
+          <input id="la-mercy" placeholder="0-100" autocomplete="off"></label>
+        <label class="wide"><span data-i18n="fExtra">EXTRA ARGS (PASSTHROUGH)</span>
+          <input id="la-extra" placeholder="--any --game flags" autocomplete="off"></label>
+      </div>
+      <div class="launch-row">
+        <button id="launch-btn" class="btn big">&#9654; <span data-i18n="launch">LAUNCH</span></button>
+        <div id="launch-hint" class="hint"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="col">
+    <div class="broken-box panel terminal-panel">
+      <div class="panel-head">
+        <h2 data-i18n="terminal">OUTPUT</h2>
+        <button id="cancel-btn" class="btn small danger" hidden>&#10005; <span data-i18n="cancel">CANCEL</span></button>
+      </div>
+      <pre id="terminal" class="terminal" data-i18n-placeholder="termPlaceholder">—</pre>
+    </div>
+
+    <div class="broken-box panel">
+      <div class="panel-head"><h2 data-i18n="runs">RUNS</h2></div>
+      <div id="runs-log" class="runs-log"></div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <span>kristal-debug-tools — <a href="https://github.com/Bli-AIk/kristal-debug-tools" target="_blank" rel="noopener">github</a></span>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
