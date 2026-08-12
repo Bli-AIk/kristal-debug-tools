@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -274,6 +275,50 @@ func TestTemplateInfo(t *testing.T) {
 	}
 	if len(info.Chapters) != 2 || info.Chapters[0].Items != 2 {
 		t.Fatalf("chapters = %+v", info.Chapters)
+	}
+}
+
+// TestTemplateAlreadyInitialized: start.sh never rewrites the subtitle, so
+// the marker alone would keep showing the panel after init; the git-HEAD
+// id/name comparison must hide it.
+func TestTemplateAlreadyInitialized(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+	root := t.TempDir()
+	engine := t.TempDir()
+	mustWrite(t, filepath.Join(root, "start.sh"), []byte("#!/bin/sh\n"))
+	modJSON := []byte(`{
+		"id": "thrash-machine",
+		"name": "Thrash Machine",
+		"subtitle": "Kristal Lua template",
+		"chapter": 4,
+	}`)
+	mustWrite(t, filepath.Join(root, "mod.json"), modJSON)
+	run := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command("git", append([]string{"-C", root}, args...)...)
+		cmd.Env = append(os.Environ(),
+			"GIT_AUTHOR_NAME=t", "GIT_AUTHOR_EMAIL=t@t", "GIT_COMMITTER_NAME=t", "GIT_COMMITTER_EMAIL=t@t")
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	run("init", "-q")
+	run("add", "mod.json", "start.sh")
+	run("commit", "-q", "-m", "template")
+	if info := detectTemplate(root, engine); info == nil || !info.IsTemplate {
+		t.Fatal("pristine template should be detected")
+	}
+	// Simulate initialization: id/name changed, subtitle untouched.
+	mustWrite(t, filepath.Join(root, "mod.json"), []byte(`{
+		"id": "my-game",
+		"name": "My Game",
+		"subtitle": "Kristal Lua template",
+		"chapter": 2,
+	}`))
+	if info := detectTemplate(root, engine); info != nil {
+		t.Fatalf("initialized project must hide the panel, got %+v", info)
 	}
 }
 

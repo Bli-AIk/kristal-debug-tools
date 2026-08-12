@@ -140,8 +140,12 @@ type templateInfo struct {
 	Chapters   []chapterInfo `json:"chapters"`
 }
 
-// templateInfo detects the thrash-machine template (subtitle marker +
-// start.sh) and summarizes the engine's per-chapter default configs.
+// detectTemplate detects a PRISTINE thrash-machine template: the subtitle
+// marker + start.sh, and — the important part — the committed mod.json
+// (git HEAD) still matching the working copy. start.sh never rewrites the
+// subtitle, so the marker alone would keep showing the init panel on
+// already-initialized projects; comparing id/name against HEAD matches
+// start.sh's own "already initialized?" logic.
 func detectTemplate(modRoot, engineRoot string) *templateInfo {
 	if !fileExists(filepath.Join(modRoot, "start.sh")) {
 		return nil
@@ -151,11 +155,21 @@ func detectTemplate(modRoot, engineRoot string) *templateInfo {
 		return nil
 	}
 	var m struct {
+		ID       string `json:"id"`
+		Name     string `json:"name"`
 		Subtitle string `json:"subtitle"`
 		Chapter  int    `json:"chapter"`
 	}
 	if json.Unmarshal(stripJSONComments(data), &m) != nil || m.Subtitle != "Kristal Lua template" {
 		return nil
+	}
+	// If git works, an id/name change from HEAD means the project was
+	// already initialized — hide the panel (best effort; without git we
+	// fall back to the subtitle check).
+	if headID, headName, ok := gitHeadModJSON(modRoot); ok {
+		if headID != m.ID || headName != m.Name {
+			return nil
+		}
 	}
 	info := &templateInfo{
 		IsTemplate: true,
@@ -169,6 +183,23 @@ func detectTemplate(modRoot, engineRoot string) *templateInfo {
 		}
 	}
 	return info
+}
+
+// gitHeadModJSON reads the committed mod.json's id/name via
+// `git show HEAD:mod.json` (same probe start.sh uses).
+func gitHeadModJSON(modRoot string) (id, name string, ok bool) {
+	out, err := exec.Command("git", "-C", modRoot, "show", "HEAD:mod.json").Output()
+	if err != nil {
+		return "", "", false
+	}
+	var m struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	}
+	if json.Unmarshal(stripJSONComments(out), &m) != nil {
+		return "", "", false
+	}
+	return m.ID, m.Name, true
 }
 
 // validProjectName restricts names to letters/digits/space/dash/underscore

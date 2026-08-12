@@ -8,7 +8,7 @@ const I18N = {
     project: "项目信息", system: "系统", libraries: "依赖库",
     projectBuilds: "项目构建",
     initProject: "项目初始化", projectName: "项目名", defaultChapter: "默认章节",
-    initBtn: "初始化项目", initDone: "初始化已在终端窗口启动，完成后建议重启 GUI",
+    initBtn: "初始化项目", initConfirm: "再次点击确认", initDone: "初始化已在终端窗口启动，完成后建议重启 GUI",
     initFail: "初始化失败", chapterSaved: "默认章节已保存", chapterItems: "项配置",
     run: "运行", refresh: "刷新",
     copyUrl: "复制地址", copied: "已复制",
@@ -34,7 +34,7 @@ const I18N = {
     project: "PROJECT", system: "system", libraries: "libraries",
     projectBuilds: "PROJECT BUILDS",
     initProject: "INITIALIZE PROJECT", projectName: "PROJECT NAME", defaultChapter: "DEFAULT CHAPTER",
-    initBtn: "INITIALIZE", initDone: "initialization started in a terminal window — restart the GUI when done",
+    initBtn: "INITIALIZE", initConfirm: "CLICK AGAIN TO CONFIRM", initDone: "initialization started in a terminal window — restart the GUI when done",
     initFail: "init failed", chapterSaved: "default chapter saved", chapterItems: "items",
     run: "RUN", refresh: "REFRESH",
     copyUrl: "COPY URL", copied: "COPIED",
@@ -196,12 +196,33 @@ function renderTemplate(s) {
   if (tpl.chapter) sel.value = String(tpl.chapter);
 }
 
+/* Double-click-to-confirm: initialization renames tracked files, so the
+ * first click arms the button (5s window), the second executes. */
+let initArmTimer = null;
+
+function disarmInit() {
+  const btn = document.getElementById("init-btn");
+  delete btn.dataset.armed;
+  btn.classList.remove("armed");
+  btn.querySelector("span").textContent = t("initBtn");
+}
+
 async function initProject() {
+  const btn = document.getElementById("init-btn");
   const name = document.getElementById("init-name").value.trim();
   if (!name) {
     showFlash(t("initFail") + ": " + t("projectName"), true);
     return;
   }
+  if (!btn.dataset.armed) {
+    btn.dataset.armed = "1";
+    btn.classList.add("armed");
+    btn.querySelector("span").textContent = t("initConfirm");
+    clearTimeout(initArmTimer);
+    initArmTimer = setTimeout(disarmInit, 5000);
+    return;
+  }
+  disarmInit();
   try {
     await postJSON("/api/template/init", { name });
     showFlash(t("initDone"));
