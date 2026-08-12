@@ -21,14 +21,30 @@ fi
 
 DL_DIR="$MOD_ROOT/.tools/gui"
 mkdir -p "$DL_DIR"
-MODE_FILE="$DL_DIR/.mode"
+SETTINGS="$DL_DIR/settings.json"
+
+read_mode() {
+    # extract "mode": "..." from the JSON without requiring jq
+    sed -n 's/.*"mode"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$SETTINGS" 2>/dev/null | head -1
+}
+
+write_mode() {
+    if [ -f "$SETTINGS" ] && grep -q '"mode"' "$SETTINGS" 2>/dev/null; then
+        sed -i "s/\"mode\"[[:space:]]*:[[:space:]]*\"[^\"]*\"/\"mode\": \"$1\"/" "$SETTINGS"
+    elif [ -f "$SETTINGS" ]; then
+        # settings.json exists without a mode key — append it as the
+        # last member of the top-level object (plain one-level JSON)
+        sed -i "\$s/^}/,\n  \"mode\": \"$1\"\n}/" "$SETTINGS"
+    else
+        echo "{\"mode\": \"$1\"}" > "$SETTINGS"
+    fi
+}
 
 case "$MODE_ARG" in
-    bin|compile) MODE="$MODE_ARG"; printf '%s\n' "$MODE" > "$MODE_FILE" ;;
+    bin|compile) MODE="$MODE_ARG"; write_mode "$MODE" ;;
     *)
-        if [ -f "$MODE_FILE" ]; then
-            MODE="$(cat "$MODE_FILE")"
-        elif command -v cargo >/dev/null 2>&1 && command -v node >/dev/null 2>&1; then
+        MODE="$(read_mode)"
+        if [ -z "$MODE" ] && command -v cargo >/dev/null 2>&1 && command -v node >/dev/null 2>&1; then
             echo "[kristal-debug-tools] Detected a local compile toolchain (cargo + node)."
             printf "[B] use release binaries (default)  [C] compile and run locally: "
             read -t 5 ans || ans=B
@@ -36,11 +52,10 @@ case "$MODE_ARG" in
                 [Cc]*) MODE=compile ;;
                 *) MODE=bin ;;
             esac
-            printf '%s\n' "$MODE" > "$MODE_FILE"
-            echo "[kristal-debug-tools] Remembered (delete .tools/gui/.mode or pass bin|compile to change)."
-        else
-            MODE=bin
+            write_mode "$MODE"
+            echo "[kristal-debug-tools] Remembered (edit .tools/gui/settings.json or pass bin|compile to change)."
         fi
+        [ -z "$MODE" ] && MODE=bin
         ;;
 esac
 
