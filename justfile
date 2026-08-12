@@ -6,10 +6,14 @@ run *args:
 test:
     @KRISTAL_DEBUG_TOOLS_TEST_PROJECT_ROOT="{{ invocation_directory() }}" "{{ justfile_directory() }}/tests/smoke.sh"
 
-# Run the Tauri GUI (developer convenience; the gui repo is a sibling
-# submodule at libraries/kristal-debug-tools-gui). First run installs
-# npm deps automatically.
+# Run the GUI for end users: no Rust/Node/just needed (just is compiled
+# into the kristal-run sidecar). Uses a local dev build when present, else
+# downloads the latest release binaries (cached in .tools/gui/).
 gui:
+    @{{ if os() == "windows" { "\"" + justfile_directory() + "/gui.cmd\"" } else { "sh \"" + justfile_directory() + "/bin/gui-download.sh\" \"" + invocation_directory() + "\"" } }}
+
+# Developer mode: run the Tauri GUI from source (needs Rust + Node).
+gui-dev:
     @cd "{{ justfile_directory() }}/../kristal-debug-tools-gui" && (test -d node_modules || npm ci) && npm run tauri dev
 
 alias l := run
