@@ -1,10 +1,8 @@
 #!/bin/sh
 # Run the kristal-debug-tools GUI without installing anything. No Rust/
 # Node/just needed (just is compiled into the kristal-run sidecar).
-#   - A local release build is used when present.
-#   - The choice between release binaries and local compile is asked once
-#     and remembered in <mod-root>/.tools/gui/settings.json; `just gui
-#     bin|compile` overrides it.
+#   - `just gui` always runs the release binaries; compile mode is only
+#     used by `just gui-dev` / `just gui-dev-release`.
 #   - Release binaries are auto-checked against the latest GitHub release
 #     and re-downloaded when a newer version exists (SHA256-verified).
 set -eu
@@ -14,36 +12,13 @@ MODE_ARG="${2:-}"
 # GUI source is optional and cloned into <mod-root>/.tools/gui-src
 # (.tools/ is ignored), not into libraries/.
 GUI_REPO_DIR="$MOD_ROOT/.tools/gui-src"
-LOCAL_BIN="$GUI_REPO_DIR/src-tauri/target/release/kristal-debug-tools-gui"
-if [ -x "$LOCAL_BIN" ]; then
-    shift 2>/dev/null || true
-    exec "$LOCAL_BIN" "$@"
-fi
 
 DL_DIR="$MOD_ROOT/.tools/gui"
 mkdir -p "$DL_DIR"
-SETTINGS="$DL_DIR/settings.json"
 VERSION_FILE="$DL_DIR/version.txt"
 GUI_REPO="https://github.com/Bli-AIk/kristal-debug-tools-gui.git"
 RELEASE_BASE="https://github.com/Bli-AIk/kristal-debug-tools-gui/releases/latest/download"
 RELEASE_API="https://api.github.com/repos/Bli-AIk/kristal-debug-tools-gui/releases/latest"
-
-read_mode() {
-    # extract "mode": "..." from the JSON without requiring jq
-    sed -n 's/.*"mode"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$SETTINGS" 2>/dev/null | head -1
-}
-
-write_mode() {
-    if [ -f "$SETTINGS" ] && grep -q '"mode"' "$SETTINGS" 2>/dev/null; then
-        sed -i "s/\"mode\"[[:space:]]*:[[:space:]]*\"[^\"]*\"/\"mode\": \"$1\"/" "$SETTINGS"
-    elif [ -f "$SETTINGS" ]; then
-        # settings.json exists without a mode key — append it as the
-        # last member of the top-level object (plain one-level JSON)
-        sed -i "\$s/^}/,\n  \"mode\": \"$1\"\n}/" "$SETTINGS"
-    else
-        echo "{\"mode\": \"$1\"}" > "$SETTINGS"
-    fi
-}
 
 latest_version() {
     curl -fsSL --max-time 10 -H "User-Agent: kristal-debug-tools-gui" "$RELEASE_API" \
@@ -52,22 +27,8 @@ latest_version() {
 }
 
 case "$MODE_ARG" in
-    bin|compile|compile-release) MODE="$MODE_ARG"; write_mode "$MODE" ;;
-    *)
-        MODE="$(read_mode)"
-        if [ -z "$MODE" ] && command -v cargo >/dev/null 2>&1 && command -v node >/dev/null 2>&1; then
-            echo "[kristal-debug-tools] Detected a local compile toolchain (cargo + node)."
-            printf "[B] use release binaries (default)  [C] compile and run locally: "
-            read -t 5 ans || ans=B
-            case "$ans" in
-                [Cc]*) MODE=compile ;;
-                *) MODE=bin ;;
-            esac
-            write_mode "$MODE"
-            echo "[kristal-debug-tools] Remembered (edit .tools/gui/settings.json or pass bin|compile to change)."
-        fi
-        [ -z "$MODE" ] && MODE=bin
-        ;;
+    compile|compile-release) MODE="$MODE_ARG" ;;
+    *) MODE=bin ;;
 esac
 
 if [ "$MODE" = compile ] || [ "$MODE" = compile-release ]; then

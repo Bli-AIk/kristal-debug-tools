@@ -1,9 +1,7 @@
 @echo off
 rem gui.cmd - start the kristal-debug-tools GUI without installing anything.
-rem   - Uses a locally built exe (.tools\gui\gui-src\src-tauri\target\release)
-rem     when present, so development builds work offline.
-rem   - Detects a local compile toolchain (cargo + node) and asks whether to
-rem     run from source instead; falls back to release binaries.
+rem   - `gui` always runs release binaries; compile is only used by
+rem     `gui-dev` / `gui-dev-release`.
 rem   - Otherwise checks the latest GitHub release and downloads/updates the
 rem     release binaries into .tools\gui\ (SHA256-verified). `just` is
 rem     compiled into the kristal-run sidecar.
@@ -12,59 +10,17 @@ rem     longer a required submodule.
 setlocal EnableExtensions
 set "DL_DIR=%~dp0..\..\.tools\gui"
 set "GUI_DIR=%DL_DIR%\gui-src"
-set "LOCAL_EXE=%GUI_DIR%\src-tauri\target\release\kristal-debug-tools-gui.exe"
 set "DL_EXE=%DL_DIR%\kristal-debug-tools-gui-windows-x64.exe"
 set "DL_SIDE=%DL_DIR%\kristal-run-windows-x64.exe"
 
-if exist "%LOCAL_EXE%" (
-    "%LOCAL_EXE%" %*
-    exit /b %ERRORLEVEL%
+if /i "%~1"=="compile" (
+    set "MODE=compile"
+    goto compile
 )
-
-rem The bin/compile choice is asked once and remembered in
-rem .tools\gui\settings.json; `gui.cmd bin|compile` overrides it.
-set "SETTINGS=%DL_DIR%\settings.json"
-set "MODE="
-set "MODE_ARG="
-if /i "%~1"=="bin" set "MODE_ARG=bin"
-if /i "%~1"=="compile" set "MODE_ARG=compile"
-if /i "%~1"=="compile-release" set "MODE_ARG=compile-release"
-
-if defined MODE_ARG (
-    set "MODE=%MODE_ARG%"
-    if not exist "%DL_DIR%" mkdir "%DL_DIR%"
-    powershell -NoProfile -Command ^
-      "$s=if(Test-Path '%SETTINGS%'){(Get-Content '%SETTINGS%'|ConvertFrom-Json)}else{[pscustomobject]@{}};" ^
-      "$s.mode='%MODE%'; $s|ConvertTo-Json|Set-Content '%SETTINGS%'"
-    shift
-    goto run-mode
+if /i "%~1"=="compile-release" (
+    set "MODE=compile-release"
+    goto compile
 )
-
-for /f "usebackq delims=" %%M in (`powershell -NoProfile -Command "(Get-Content '%SETTINGS%' -ErrorAction SilentlyContinue | ConvertFrom-Json).mode"`) do set "MODE=%%M"
-if defined MODE goto run-mode
-
-where cargo >nul 2>&1
-if errorlevel 1 goto set-bin
-where node >nul 2>&1
-if errorlevel 1 goto set-bin
-echo [kristal-debug-tools] Detected a local compile toolchain (cargo + node).
-choice /c BC /n /t 5 /d B /m "[B] use release binaries (default)  [C] compile and run locally: "
-if not exist "%DL_DIR%" mkdir "%DL_DIR%"
-set "MODE=bin"
-if errorlevel 2 set "MODE=compile"
-powershell -NoProfile -Command ^
-  "$s=if(Test-Path '%SETTINGS%'){(Get-Content '%SETTINGS%'|ConvertFrom-Json)}else{[pscustomobject]@{}};" ^
-  "$s.mode='%MODE%'; $s|ConvertTo-Json|Set-Content '%SETTINGS%'"
-echo [kristal-debug-tools] Remembered (edit .tools\gui\settings.json or pass bin^|compile to change).
-goto run-mode
-
-:set-bin
-set "MODE=bin"
-goto run-mode
-
-:run-mode
-if "%MODE%"=="compile" goto compile
-if "%MODE%"=="compile-release" goto compile
 goto download
 
 :compile
