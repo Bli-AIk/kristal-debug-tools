@@ -18,15 +18,48 @@ if exist "%LOCAL_EXE%" (
     exit /b %ERRORLEVEL%
 )
 
-rem Toolchain present? Offer local compile instead of downloading.
+rem The bin/compile choice is asked once and remembered in .tools\gui\.mode;
+rem `gui.cmd bin|compile` overrides it.
+set "DL_DIR=%~dp0..\..\.tools\gui"
+set "MODE_FILE=%DL_DIR%\.mode"
+set "MODE="
+set "MODE_ARG="
+if /i "%~1"=="bin" set "MODE_ARG=bin"
+if /i "%~1"=="compile" set "MODE_ARG=compile"
+
+if defined MODE_ARG (
+    set "MODE=%MODE_ARG%"
+    if not exist "%DL_DIR%" mkdir "%DL_DIR%"
+    echo %MODE%> "%MODE_FILE%"
+    shift
+    goto run-mode
+)
+
+if exist "%MODE_FILE%" (
+    set /p MODE=< "%MODE_FILE%"
+    goto run-mode
+)
+
 where cargo >nul 2>&1
-if errorlevel 1 goto download
+if errorlevel 1 goto set-bin
 where node >nul 2>&1
-if errorlevel 1 goto download
+if errorlevel 1 goto set-bin
 echo [kristal-debug-tools] Detected a local compile toolchain (cargo + node).
 choice /c BC /n /t 5 /d B /m "[B] use release binaries (default)  [C] compile and run locally: "
-if not errorlevel 2 goto download
+if not exist "%DL_DIR%" mkdir "%DL_DIR%"
+if errorlevel 2 (echo compile> "%MODE_FILE%") else (echo bin> "%MODE_FILE%")
+echo [kristal-debug-tools] Remembered (delete .tools\gui\.mode or pass bin^|compile to change).
+goto run-mode
 
+:set-bin
+set "MODE=bin"
+goto run-mode
+
+:run-mode
+if "%MODE%"=="compile" goto compile
+goto download
+
+:compile
 echo [kristal-debug-tools] Compiling locally (npm run tauri dev)...
 pushd "%GUI_DIR%"
 if not exist node_modules (

@@ -8,9 +8,11 @@ test:
 
 # Run the GUI for end users: no Rust/Node/just needed (just is compiled
 # into the kristal-run sidecar). Uses a local dev build when present, else
-# downloads the latest release binaries (cached in .tools/gui/).
-gui:
-    @{{ if os() == "windows" { "\"" + justfile_directory() + "/gui.cmd\"" } else { "sh \"" + justfile_directory() + "/bin/gui-download.sh\" \"" + invocation_directory() + "\"" } }}
+# downloads the latest release binaries (cached in .tools/gui/). The
+# bin|compile choice is asked once and remembered; `just gui bin|compile`
+# overrides it.
+gui *args:
+    @{{ if os() == "windows" { "\"" + justfile_directory() + "/gui.cmd\"" } else { "sh \"" + justfile_directory() + "/bin/gui-download.sh\" \"" + invocation_directory() + "\"" } }} {{ args }}
 
 # Developer mode: run the Tauri GUI from source (needs Rust + Node).
 gui-dev:
