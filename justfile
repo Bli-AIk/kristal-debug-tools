@@ -12,12 +12,9 @@ run *args:
 test:
     @KRISTAL_DEBUG_TOOLS_TEST_PROJECT_ROOT="{{ invocation_directory() }}" "{{ justfile_directory() }}/tests/smoke.sh"
 
-# Run the GUI for end users: no Rust/Node/just needed (just is compiled
-# into the kristal-run sidecar). Uses a local dev build when present, else
-# downloads the latest release binaries (cached in .tools/gui/). The
-# bin|compile choice is asked once and remembered; `just gui bin|compile`
-# overrides it.
-# zh_hans: 启动图形界面：无需 just/Rust/Node（just 已编译进程序）。优先用本地构建，否则自动下载最新 release（缓存在 .tools/gui/）。bin|compile 的选择只问一次并记住；可用 `just gui bin|compile` 覆盖
+# Run the GUI for end users (downloads release binaries on first use;
+# `just gui bin|compile` picks/remembers the source).
+# zh_hans: 启动图形界面：无需 just/Rust/Node，优先本地构建，否则自动下载最新 release
 gui *args:
     @{{ if os() == "windows" { "\"" + justfile_directory() + "/gui.cmd\"" } else { "sh \"" + justfile_directory() + "/bin/gui-download.sh\" \"" + invocation_directory() + "\"" } }} {{ args }}
 
