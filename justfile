@@ -12,17 +12,16 @@ run *args:
 test:
     @KRISTAL_DEBUG_TOOLS_TEST_PROJECT_ROOT="{{ invocation_directory() }}" "{{ justfile_directory() }}/tests/smoke.sh"
 
-# Run the GUI for end users (downloads release binaries on first use;
+# Run the GUI for end users (checks for a newer release and downloads it;
 # `just gui bin|compile` picks/remembers the source).
-# zh_hans: 启动图形界面：无需 just/Rust/Node，优先本地构建，否则自动下载最新 release
+# zh_hans: 启动图形界面：无需 just/Rust/Node，优先本地构建，否则自动检测并下载最新 release
 gui *args:
     @{{ if os() == "windows" { "\"" + justfile_directory() + "/gui.cmd\"" } else { "sh \"" + justfile_directory() + "/bin/gui-download.sh\" \"" + invocation_directory() + "\"" } }} {{ args }}
 
 # Developer mode: run the Tauri GUI from source (needs Rust + Node).
-# The kristal-run sidecar is built first — tauri dev only compiles the
-# main bin, and the task list needs the sidecar.
-# zh_hans: 开发者模式：源码运行 GUI（需要 Rust + Node）。会先构建 kristal-run sidecar（任务列表依赖它）
+# The GUI repo is cloned on demand — it is not a required submodule.
+# zh_hans: 开发者模式：源码运行 GUI（需要 Rust + Node）。源码目录不存在时会自动 clone。
 gui-dev:
-    @cd "{{ justfile_directory() }}/../kristal-debug-tools-gui" && (test -d node_modules || npm ci) && cargo build --manifest-path src-tauri/Cargo.toml --bin kristal-run && npm run tauri dev
+    @{{ if os() == "windows" { "\"" + justfile_directory() + "/gui.cmd\"" } else { "sh \"" + justfile_directory() + "/bin/gui-download.sh\" \"" + invocation_directory() + "\"" } }} compile
 
 alias l := run

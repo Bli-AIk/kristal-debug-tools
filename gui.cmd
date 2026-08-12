@@ -4,8 +4,11 @@ rem   - Uses the locally built exe (libraries\kristal-debug-tools-gui\src-tauri\
 rem     when present, so development builds work offline.
 rem   - Detects a local compile toolchain (cargo + node) and asks whether to
 rem     run from source instead; falls back to release binaries.
-rem   - Otherwise downloads the latest release binaries into .tools\gui\
-rem     (SHA256-verified). `just` is compiled into the kristal-run sidecar.
+rem   - Otherwise checks the latest GitHub release and downloads/updates the
+rem     release binaries into .tools\gui\ (SHA256-verified). `just` is
+rem     compiled into the kristal-run sidecar.
+rem   - Compile mode clones the GUI source repo on demand; the GUI is no
+rem     longer a required submodule.
 setlocal EnableExtensions
 set "GUI_DIR=%~dp0..\kristal-debug-tools-gui"
 set "LOCAL_EXE=%GUI_DIR%\src-tauri\target\release\kristal-debug-tools-gui.exe"
@@ -64,6 +67,16 @@ if "%MODE%"=="compile" goto compile
 goto download
 
 :compile
+if not exist "%GUI_DIR%\.git" (
+    if not exist "%GUI_DIR%" (
+        echo [kristal-debug-tools] Cloning GUI source for local compile...
+        git clone --depth 1 https://github.com/Bli-AIk/kristal-debug-tools-gui.git "%GUI_DIR%"
+        if errorlevel 1 goto compile-fail
+    ) else (
+        echo [kristal-debug-tools] "%GUI_DIR%" exists but is not a git checkout.
+        goto compile-fail
+    )
+)
 echo [kristal-debug-tools] Compiling locally (npm run tauri dev)...
 pushd "%GUI_DIR%"
 if not exist node_modules (
@@ -81,11 +94,27 @@ if "%DEV_ERR%"=="0" exit /b 0
 echo [kristal-debug-tools] Local compile failed (%DEV_ERR%), falling back to release binaries.
 
 :download
-if exist "%DL_EXE%" (
-    "%DL_EXE%" %*
-    exit /b %ERRORLEVEL%
-)
+if exist "%DL_EXE%" if exist "%DL_SIDE%" if exist "%DL_DIR%\checksums.txt" goto check-version
+goto need-download
 
+:check-version
+set "LATEST="
+for /f "usebackq delims=" %%V in (`powershell -NoProfile -Command "try { (Invoke-RestMethod -Uri 'https://api.github.com/repos/Bli-AIk/kristal-debug-tools-gui/releases/latest' -Headers @{'User-Agent'='kristal-debug-tools-gui'} -TimeoutSec 10).tag_name } catch { '' }"`) do set "LATEST=%%V"
+if not defined LATEST (
+    echo [kristal-debug-tools] Could not check for updates, using cached build.
+    goto run-cached
+)
+if not exist "%DL_DIR%\version.txt" goto need-download
+set "CACHED="
+set /p CACHED=<"%DL_DIR%\version.txt"
+if "%CACHED%"=="%LATEST%" goto run-cached
+goto need-download
+
+:run-cached
+"%DL_EXE%" %*
+exit /b %ERRORLEVEL%
+
+:need-download
 echo [kristal-debug-tools] Downloading the GUI (latest release)...
 if not exist "%DL_DIR%" mkdir "%DL_DIR%"
 powershell -NoProfile -Command ^
@@ -101,6 +130,9 @@ powershell -NoProfile -Command ^
 if errorlevel 1 (
     echo [kristal-debug-tools] Download or checksum failed. Check your network or build locally.
     exit /b 1
+)
+if defined LATEST (
+    >"%DL_DIR%\version.txt" echo %LATEST%
 )
 
 "%DL_EXE%" %*
