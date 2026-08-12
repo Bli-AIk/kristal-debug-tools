@@ -395,6 +395,104 @@ func TestTemplateInitValidation(t *testing.T) {
 	}
 }
 
+func TestChapterConfig(t *testing.T) {
+	engine := t.TempDir()
+	mustWrite(t, filepath.Join(engine, "configs", "chapter1.json"), []byte(`{"oldTensionBar": true, "darkCurrency": "Dark Dollars"}`))
+	mustWrite(t, filepath.Join(engine, "configs", "chapter2.json"), []byte(`{"oldTensionBar": false, "darkCurrency": "Dark Dollars"}`))
+	mustWrite(t, filepath.Join(engine, "configs", "chapter3.json"), []byte(`{"oldTensionBar": false}`))
+	mustWrite(t, filepath.Join(engine, "configs", "chapter4.json"), []byte(`{"oldTensionBar": false}`))
+	root := t.TempDir()
+	mustWrite(t, filepath.Join(root, "mod.json"), []byte(`{
+		"chapter": 2,
+		"config": {
+			"kristal": {
+				"oldTensionBar": true, // override
+			},
+		},
+	}`))
+	out := chapterConfig(root, engine)
+	items := out["items"].([]chapterConfigItem)
+	var tension *chapterConfigItem
+	for i := range items {
+		if items[i].Key == "oldTensionBar" {
+			tension = &items[i]
+		}
+	}
+	if tension == nil {
+		t.Fatal("oldTensionBar not listed")
+	}
+	if tension.Values["1"] != true || tension.Values["2"] != false {
+		t.Fatalf("values = %+v", tension.Values)
+	}
+	if tension.Override != true {
+		t.Fatalf("override = %+v", tension.Override)
+	}
+	if tension.Desc == "" {
+		t.Fatal("expected zh description from config-features.json")
+	}
+	if out["chapter"] != 2 {
+		t.Fatalf("chapter = %v", out["chapter"])
+	}
+}
+
+func TestModConfigSet(t *testing.T) {
+	root := t.TempDir()
+	mod := `{
+	// chapter comment
+	"chapter": 4,
+	"config": {
+		"kristal": {
+			// kristal block comment
+			"oldTensionBar": true, // inline comment
+		},
+		"kristalI18n": {},
+	},
+}`
+	mustWrite(t, filepath.Join(root, "mod.json"), []byte(mod))
+
+	// Update an existing key, preserving comments.
+	if err := modConfigSet(root, "oldTensionBar", false); err != nil {
+		t.Fatal(err)
+	}
+	out, _ := os.ReadFile(filepath.Join(root, "mod.json"))
+	s := string(out)
+	for _, keep := range []string{"chapter comment", "kristal block comment", "inline comment", `"chapter": 4`} {
+		if !strings.Contains(s, keep) {
+			t.Fatalf("lost %q: %s", keep, s)
+		}
+	}
+	if !strings.Contains(s, `"oldTensionBar": false`) {
+		t.Fatalf("not updated: %s", s)
+	}
+
+	// Insert a new key.
+	if err := modConfigSet(root, "growStronger", true); err != nil {
+		t.Fatal(err)
+	}
+	out, _ = os.ReadFile(filepath.Join(root, "mod.json"))
+	if !strings.Contains(string(out), `"growStronger": true`) {
+		t.Fatalf("not inserted: %s", out)
+	}
+
+	// Remove a key.
+	if err := modConfigSet(root, "oldTensionBar", nil); err != nil {
+		t.Fatal(err)
+	}
+	out, _ = os.ReadFile(filepath.Join(root, "mod.json"))
+	if strings.Contains(string(out), "oldTensionBar") {
+		t.Fatalf("not removed: %s", out)
+	}
+	if !strings.Contains(string(out), "growStronger") {
+		t.Fatalf("other key lost: %s", out)
+	}
+
+	// Round-trip: the result still parses as JSONC.
+	var m map[string]any
+	if err := json.Unmarshal(stripJSONComments(out), &m); err != nil {
+		t.Fatalf("result not parseable: %v\n%s", err, out)
+	}
+}
+
 func TestProjectInfoJSONC(t *testing.T) {
 	root := t.TempDir()
 	mustWrite(t, filepath.Join(root, "mod.json"), []byte(`{

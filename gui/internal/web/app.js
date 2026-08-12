@@ -10,6 +10,8 @@ const I18N = {
     initProject: "项目初始化", projectName: "项目名", defaultChapter: "默认章节",
     initBtn: "初始化项目", initConfirm: "再次点击确认", initDone: "初始化已在终端窗口启动，完成后建议重启 GUI",
     initFail: "初始化失败", chapterSaved: "默认章节已保存", chapterItems: "项配置",
+    chapterConfig: "章节配置", chapterCurrent: "当前章节", overrideDefault: "默认",
+    overrideOn: "开", overrideOff: "关", overrideSaved: "已保存", overrideReset: "重置",
     run: "运行", refresh: "刷新",
     copyUrl: "复制地址", copied: "已复制",
     loading: "加载中…",
@@ -36,6 +38,8 @@ const I18N = {
     initProject: "INITIALIZE PROJECT", projectName: "PROJECT NAME", defaultChapter: "DEFAULT CHAPTER",
     initBtn: "INITIALIZE", initConfirm: "CLICK AGAIN TO CONFIRM", initDone: "initialization started in a terminal window — restart the GUI when done",
     initFail: "init failed", chapterSaved: "default chapter saved", chapterItems: "items",
+    chapterConfig: "CHAPTER CONFIG", chapterCurrent: "chapter", overrideDefault: "default",
+    overrideOn: "on", overrideOff: "off", overrideSaved: "saved", overrideReset: "reset",
     run: "RUN", refresh: "REFRESH",
     copyUrl: "COPY URL", copied: "COPIED",
     loading: "loading…",
@@ -147,6 +151,7 @@ async function loadStatus() {
   bar.innerHTML = love + engine + mod + just + os;
   renderProject(s);
   renderTemplate(s);
+  loadChapterConfig();
 }
 
 /* --- project info --- */
@@ -171,6 +176,130 @@ function renderProject(s) {
     html += `</ul>`;
   }
   box.innerHTML = html;
+}
+
+/* --- chapter config --- */
+
+function fmtValue(v) {
+  if (v === true) return "✓";
+  if (v === false) return "✗";
+  return String(v);
+}
+
+async function loadChapterConfig() {
+  const panel = document.getElementById("chapter-panel");
+  const list = document.getElementById("chapter-config-list");
+  let data;
+  try {
+    data = await api("/api/chapter-config");
+  } catch (_) {
+    panel.hidden = true;
+    return;
+  }
+  panel.hidden = false;
+  document.getElementById("chapter-current").textContent =
+    t("chapterCurrent") + ": " + data.chapter;
+  list.innerHTML = "";
+  for (const item of data.items) {
+    list.appendChild(chapterConfigRow(item));
+  }
+}
+
+function chapterConfigRow(item) {
+  const row = document.createElement("div");
+  row.className = "cc-row";
+
+  const key = document.createElement("span");
+  key.className = "cc-key";
+  key.textContent = item.key;
+  row.appendChild(key);
+
+  const desc = document.createElement("span");
+  desc.className = "cc-desc";
+  desc.textContent = item.desc || "";
+  desc.title = item.desc || "";
+  row.appendChild(desc);
+
+  const chips = document.createElement("span");
+  chips.className = "cc-chips";
+  for (let n = 1; n <= 4; n++) {
+    const chip = document.createElement("span");
+    chip.className = "cc-chip" + (n === 4 ? " cur" : "");
+    if (item.values && item.values[n] !== undefined) {
+      chip.textContent = n + ":" + fmtValue(item.values[n]);
+    } else {
+      chip.textContent = n + ":—";
+    }
+    chip.title = `${t("chapterCurrent")} ${n}`;
+    chips.appendChild(chip);
+  }
+  row.appendChild(chips);
+
+  row.appendChild(chapterConfigControl(item));
+  return row;
+}
+
+function chapterConfigControl(item) {
+  const wrap = document.createElement("span");
+  wrap.className = "cc-override";
+  const isBool = item.values && typeof item.values["1"] === "boolean";
+
+  if (isBool) {
+    const btn = document.createElement("button");
+    btn.className = "btn small" + (item.override !== null && item.override !== undefined ? " armed" : "");
+    const states = [null, true, false];
+    let state = item.override === undefined || item.override === null ? 0 : (item.override === true ? 1 : 2);
+    const label = () => {
+      if (state === 0) return t("overrideDefault");
+      if (state === 1) return t("overrideOn") + " ✓";
+      return t("overrideOff") + " ✗";
+    };
+    btn.textContent = label();
+    btn.onclick = async () => {
+      state = (state + 1) % 3;
+      btn.textContent = label();
+      btn.classList.toggle("armed", state !== 0);
+      try {
+        await postJSON("/api/chapter-config", { key: item.key, value: states[state] });
+        showFlash(t("overrideSaved") + ": " + item.key);
+      } catch (err) {
+        showFlash(err.message, true);
+      }
+    };
+    wrap.appendChild(btn);
+    return wrap;
+  }
+
+  const input = document.createElement("input");
+  input.type = "text";
+  input.value = item.override !== undefined && item.override !== null ? String(item.override) : "";
+  input.placeholder = t("overrideDefault");
+  const save = document.createElement("button");
+  save.className = "btn small";
+  save.textContent = t("overrideSaved");
+  save.onclick = async () => {
+    const v = input.value.trim();
+    try {
+      await postJSON("/api/chapter-config", { key: item.key, value: v === "" ? null : v });
+      showFlash(t("overrideSaved") + ": " + item.key);
+    } catch (err) {
+      showFlash(err.message, true);
+    }
+  };
+  const reset = document.createElement("button");
+  reset.className = "btn small";
+  reset.textContent = t("overrideReset");
+  reset.onclick = async () => {
+    try {
+      await postJSON("/api/chapter-config", { key: item.key, value: null });
+      input.value = "";
+      showFlash(t("overrideReset") + ": " + item.key);
+    } catch (err) {
+      showFlash(err.message, true);
+    }
+  };
+  wrap.append(input, save, reset);
+  return wrap;
 }
 
 /* --- template init panel --- */

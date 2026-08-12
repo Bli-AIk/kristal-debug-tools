@@ -336,6 +336,39 @@ input:focus, select:focus { outline: none; border-color: var(--yellow); }
 .proj-list .lib-id { color: var(--text); }
 .proj-list .lib-ver { color: var(--muted); font-size: 0.85em; }
 
+/* --- chapter config --- */
+
+.chapter-config-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 420px;
+  overflow-y: auto;
+}
+.cc-row {
+  display: grid;
+  grid-template-columns: 150px 1fr auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 0.85rem;
+}
+.cc-row:last-child { border-bottom: none; }
+.cc-key { font-family: var(--font-bold); }
+.cc-desc { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cc-chips { display: flex; gap: 3px; }
+.cc-chip {
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  padding: 0 4px;
+  font-size: 0.75rem;
+  color: var(--dim);
+  white-space: nowrap;
+}
+.cc-chip.cur { border-color: var(--yellow); color: var(--yellow); }
+.cc-override { display: flex; gap: 5px; align-items: center; justify-content: flex-end; }
+.cc-override input { width: 90px; padding: 1px 5px; font-size: 0.8rem; }
+
 /* --- runs log --- */
 
 .runs-log { display: flex; flex-direction: column; gap: 2px; max-height: 260px; overflow-y: auto; }

@@ -67,6 +67,8 @@ func New(opts Options) *Server {
 	mux.HandleFunc("POST /api/game/launch", s.handleLaunch)
 	mux.HandleFunc("POST /api/template/init", s.handleTemplateInit)
 	mux.HandleFunc("POST /api/template/chapter", s.handleTemplateChapter)
+	mux.HandleFunc("GET /api/chapter-config", s.handleChapterConfig)
+	mux.HandleFunc("POST /api/chapter-config", s.handleChapterConfigSet)
 	mux.Handle("/", http.FileServer(http.FS(web.FS)))
 	s.mux = mux
 	return s
