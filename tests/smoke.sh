@@ -20,6 +20,9 @@ printf '%s\n' "$output" | grep -F -- '--wave 2' >/dev/null
 printf '%s\n' "$output" | grep -F -- '--tp 50' >/dev/null
 printf '%s\n' "$output" | grep -F -- '--mercy 100' >/dev/null
 
+output=$(dry_run -wf 2)
+printf '%s\n' "$output" | grep -F -- '--wave-force 2' >/dev/null
+
 output=$(dry_run --encounter dummy --initial-tp=25 --initial-mercy=75)
 printf '%s\n' "$output" | grep -F -- '--encounter dummy' >/dev/null
 printf '%s\n' "$output" | grep -F -- '--tp 25' >/dev/null

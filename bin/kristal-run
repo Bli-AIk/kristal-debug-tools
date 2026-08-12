@@ -113,15 +113,6 @@ while [ "$#" -gt 0 ]; do
             kristal_args+=(--wave "$(require_value --wave "${1#--wave=}")")
             shift
             ;;
-        --wave|-w)
-            [ "$#" -gt 1 ] || { printf '%s\n' "$1 requires a value." >&2; exit 64; }
-            kristal_args+=(--wave "$2")
-            shift 2
-            ;;
-        -w?*)
-            kristal_args+=(--wave "$(require_value -w "${1#-w}")")
-            shift
-            ;;
         --wave-force=*)
             kristal_args+=(--wave-force "$(require_value --wave-force "${1#--wave-force=}")")
             shift
@@ -133,6 +124,15 @@ while [ "$#" -gt 0 ]; do
             ;;
         -wf?*)
             kristal_args+=(--wave-force "$(require_value -wf "${1#-wf}")")
+            shift
+            ;;
+        --wave|-w)
+            [ "$#" -gt 1 ] || { printf '%s\n' "$1 requires a value." >&2; exit 64; }
+            kristal_args+=(--wave "$2")
+            shift 2
+            ;;
+        -w?*)
+            kristal_args+=(--wave "$(require_value -w "${1#-w}")")
             shift
             ;;
         --initial-tp=*|--tp=*)
