@@ -93,6 +93,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
+  min-height: 100vh;
 }
 
 h1, h2, strong, b { font-family: var(--font-bold); font-weight: normal; }
@@ -158,6 +159,9 @@ a:hover { color: var(--cyan-bright); text-decoration: underline; }
   grid-template-columns: 1fr 1fr;
   gap: 18px;
   z-index: 1;
+  /* Grow to fill the viewport so the footer sits at the bottom. */
+  flex: 1;
+  align-content: start;
 }
 @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
 
