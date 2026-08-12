@@ -7,8 +7,9 @@ test:
     @KRISTAL_DEBUG_TOOLS_TEST_PROJECT_ROOT="{{ invocation_directory() }}" "{{ justfile_directory() }}/tests/smoke.sh"
 
 # Run the Tauri GUI (developer convenience; the gui repo is a sibling
-# submodule at libraries/kristal-debug-tools-gui).
+# submodule at libraries/kristal-debug-tools-gui). First run installs
+# npm deps automatically.
 gui:
-    @cd "{{ justfile_directory() }}/../kristal-debug-tools-gui" && npm run tauri dev
+    @cd "{{ justfile_directory() }}/../kristal-debug-tools-gui" && (test -d node_modules || npm ci) && npm run tauri dev
 
 alias l := run
