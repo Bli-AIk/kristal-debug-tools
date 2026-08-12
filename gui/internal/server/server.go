@@ -9,10 +9,12 @@ package server
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"sort"
 	"strconv"
@@ -63,6 +65,8 @@ func New(opts Options) *Server {
 	mux.HandleFunc("POST /api/runs", s.handleRun)
 	mux.HandleFunc("GET /api/runs", s.handleRuns)
 	mux.HandleFunc("POST /api/game/launch", s.handleLaunch)
+	mux.HandleFunc("POST /api/template/init", s.handleTemplateInit)
+	mux.HandleFunc("POST /api/template/chapter", s.handleTemplateChapter)
 	mux.Handle("/", http.FileServer(http.FS(web.FS)))
 	s.mux = mux
 	return s
@@ -118,7 +122,119 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 			"subtitle": subtitle,
 		},
 		"libraries": libs,
+		"template":  detectTemplate(s.opts.ModRoot, s.opts.EngineRoot),
 	})
+}
+
+// --- template initialization (thrash-machine) ---
+
+type chapterInfo struct {
+	Number int `json:"number"`
+	Items  int `json:"items"`
+}
+
+type templateInfo struct {
+	IsTemplate bool          `json:"isTemplate"`
+	Name       string        `json:"name"`    // suggested project name (mod dir basename)
+	Chapter    int           `json:"chapter"` // current value in mod.json
+	Chapters   []chapterInfo `json:"chapters"`
+}
+
+// templateInfo detects the thrash-machine template (subtitle marker +
+// start.sh) and summarizes the engine's per-chapter default configs.
+func detectTemplate(modRoot, engineRoot string) *templateInfo {
+	if !fileExists(filepath.Join(modRoot, "start.sh")) {
+		return nil
+	}
+	data, err := os.ReadFile(filepath.Join(modRoot, "mod.json"))
+	if err != nil {
+		return nil
+	}
+	var m struct {
+		Subtitle string `json:"subtitle"`
+		Chapter  int    `json:"chapter"`
+	}
+	if json.Unmarshal(stripJSONComments(data), &m) != nil || m.Subtitle != "Kristal Lua template" {
+		return nil
+	}
+	info := &templateInfo{
+		IsTemplate: true,
+		Name:       filepath.Base(modRoot),
+		Chapter:    m.Chapter,
+	}
+	keyRe := regexp.MustCompile(`"[A-Za-z][A-Za-z0-9_]*"\s*:`)
+	for n := 1; n <= 4; n++ {
+		if data, err := os.ReadFile(filepath.Join(engineRoot, "configs", fmt.Sprintf("chapter%d.json", n))); err == nil {
+			info.Chapters = append(info.Chapters, chapterInfo{Number: n, Items: len(keyRe.FindAll(data, -1))})
+		}
+	}
+	return info
+}
+
+// validProjectName restricts names to letters/digits/space/dash/underscore
+// (start.sh uses the name in file renames and mod.json patches).
+var projectNameRe = regexp.MustCompile(`^[\p{L}\p{N}][\p{L}\p{N} _-]{0,63}$`)
+
+type templateInitRequest struct {
+	Name string `json:"name"`
+}
+
+func (s *Server) handleTemplateInit(w http.ResponseWriter, r *http.Request) {
+	var req templateInitRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "bad request: "+err.Error())
+		return
+	}
+	if !projectNameRe.MatchString(req.Name) {
+		writeError(w, http.StatusBadRequest, "invalid project name (letters, digits, space, dash, underscore; max 64)")
+		return
+	}
+	if info := detectTemplate(s.opts.ModRoot, s.opts.EngineRoot); info == nil || !info.IsTemplate {
+		writeError(w, http.StatusBadRequest, "not a thrash-machine template")
+		return
+	}
+	argv := []string{"bash", filepath.Join(s.opts.ModRoot, "start.sh"), "--name", req.Name}
+	cmdStr := strings.Join(quoteAll(argv), " ")
+	if err := s.opts.Spawn("initialize project", argv, s.opts.ModRoot, true); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]int{"id": s.runs.add("initialize project", cmdStr)})
+}
+
+type chapterRequest struct {
+	Chapter int `json:"chapter"`
+}
+
+// handleTemplateChapter rewrites mod.json's "chapter" field in place,
+// preserving JSONC comments (textual replace, no JSON round-trip).
+func (s *Server) handleTemplateChapter(w http.ResponseWriter, r *http.Request) {
+	var req chapterRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "bad request: "+err.Error())
+		return
+	}
+	if req.Chapter < 1 || req.Chapter > 4 {
+		writeError(w, http.StatusBadRequest, "chapter must be 1-4")
+		return
+	}
+	path := filepath.Join(s.opts.ModRoot, "mod.json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	re := regexp.MustCompile(`("chapter"\s*:\s*)[0-9]+`)
+	if !re.Match(data) {
+		writeError(w, http.StatusBadRequest, "chapter field not found in mod.json")
+		return
+	}
+	out := re.ReplaceAll(data, []byte(fmt.Sprintf("${1}%d", req.Chapter)))
+	if err := os.WriteFile(path, out, 0o644); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
 // engineInfo reads the engine's version (VERSION file at the repo root) and

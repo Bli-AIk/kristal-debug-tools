@@ -244,6 +244,112 @@ func TestEngineInfo(t *testing.T) {
 	}
 }
 
+func TestTemplateInfo(t *testing.T) {
+	root := t.TempDir()
+	engine := t.TempDir()
+	mustWrite(t, filepath.Join(engine, "configs", "chapter1.json"), []byte("{\n  \"a\": 1, // c\n  \"b\": 2\n}"))
+	mustWrite(t, filepath.Join(engine, "configs", "chapter2.json"), []byte(`{"x": true}`))
+	// No start.sh -> not a template.
+	if info := detectTemplate(root, engine); info != nil {
+		t.Fatalf("expected nil without start.sh, got %+v", info)
+	}
+	mustWrite(t, filepath.Join(root, "start.sh"), []byte("#!/bin/sh\n"))
+	// Wrong subtitle -> not a template.
+	mustWrite(t, filepath.Join(root, "mod.json"), []byte(`{"subtitle": "other"}`))
+	if info := detectTemplate(root, engine); info != nil {
+		t.Fatalf("expected nil with wrong subtitle, got %+v", info)
+	}
+	// Real template.
+	mustWrite(t, filepath.Join(root, "mod.json"), []byte(`{
+		"name": "Thrash Machine",
+		"subtitle": "Kristal Lua template",
+		"chapter": 3,
+	}`))
+	info := detectTemplate(root, engine)
+	if info == nil || !info.IsTemplate {
+		t.Fatal("expected template detection")
+	}
+	if info.Chapter != 3 || info.Name != filepath.Base(root) {
+		t.Fatalf("info = %+v", info)
+	}
+	if len(info.Chapters) != 2 || info.Chapters[0].Items != 2 {
+		t.Fatalf("chapters = %+v", info.Chapters)
+	}
+}
+
+func TestTemplateChapterPreservesJSONC(t *testing.T) {
+	root := t.TempDir()
+	modJSON := `{
+	// The Deltarune chapter you'd like to base your project off of.
+	"chapter": 4,
+	"name": "Thrash Machine", // display name
+}`
+	mustWrite(t, filepath.Join(root, "mod.json"), []byte(modJSON))
+	_, ts, _ := newTestServer(t, Options{ModRoot: root})
+	resp, err := http.Post(ts.URL+"/api/template/chapter", "application/json",
+		strings.NewReader(`{"chapter":2}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %s", resp.Status)
+	}
+	out, err := os.ReadFile(filepath.Join(root, "mod.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(out)
+	if !strings.Contains(s, `"chapter": 2`) {
+		t.Fatalf("chapter not updated: %s", s)
+	}
+	for _, keep := range []string{"The Deltarune chapter", "display name"} {
+		if !strings.Contains(s, keep) {
+			t.Fatalf("comment lost (%q): %s", keep, s)
+		}
+	}
+	// Invalid chapter rejected.
+	resp2, _ := http.Post(ts.URL+"/api/template/chapter", "application/json",
+		strings.NewReader(`{"chapter":9}`))
+	resp2.Body.Close()
+	if resp2.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected 400 for chapter 9, got %s", resp2.Status)
+	}
+}
+
+func TestTemplateInitValidation(t *testing.T) {
+	root := t.TempDir()
+	mustWrite(t, filepath.Join(root, "mod.json"), []byte(`{"subtitle": "Kristal Lua template", "chapter": 1}`))
+	mustWrite(t, filepath.Join(root, "start.sh"), []byte("#!/bin/sh\n"))
+	_, ts, spawn := newTestServer(t, Options{ModRoot: root, EngineRoot: t.TempDir()})
+	// Bad names rejected.
+	for _, name := range []string{"", "a/b", "a\\b", "a:b", "a*b", "a<b"} {
+		resp, err := http.Post(ts.URL+"/api/template/init", "application/json",
+			strings.NewReader(`{"name":"`+name+`"}`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Fatalf("name %q: expected 400, got %s", name, resp.Status)
+		}
+	}
+	// Good name spawns bash start.sh.
+	resp, err := http.Post(ts.URL+"/api/template/init", "application/json",
+		strings.NewReader(`{"name":"My Cool Project"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %s", resp.Status)
+	}
+	argv, _ := spawn.last()
+	if argv == nil || argv[0] != "bash" || !strings.HasSuffix(argv[1], "start.sh") || argv[3] != "My Cool Project" {
+		t.Fatalf("argv = %v", argv)
+	}
+}
+
 func TestProjectInfoJSONC(t *testing.T) {
 	root := t.TempDir()
 	mustWrite(t, filepath.Join(root, "mod.json"), []byte(`{

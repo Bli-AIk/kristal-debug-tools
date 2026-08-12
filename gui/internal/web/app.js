@@ -7,6 +7,9 @@ const I18N = {
     tasks: "运行项列表（高级）", launch: "启动游戏", runs: "运行记录",
     project: "项目信息", system: "系统", libraries: "依赖库",
     projectBuilds: "项目构建",
+    initProject: "项目初始化", projectName: "项目名", defaultChapter: "默认章节",
+    initBtn: "初始化项目", initDone: "初始化已在终端窗口启动，完成后建议重启 GUI",
+    initFail: "初始化失败", chapterSaved: "默认章节已保存", chapterItems: "项配置",
     run: "运行", refresh: "刷新",
     copyUrl: "复制地址", copied: "已复制",
     loading: "加载中…",
@@ -30,6 +33,9 @@ const I18N = {
     tasks: "RUN LIST (ADVANCED)", launch: "LAUNCH GAME", notice: "NOTICE", runs: "RUNS",
     project: "PROJECT", system: "system", libraries: "libraries",
     projectBuilds: "PROJECT BUILDS",
+    initProject: "INITIALIZE PROJECT", projectName: "PROJECT NAME", defaultChapter: "DEFAULT CHAPTER",
+    initBtn: "INITIALIZE", initDone: "initialization started in a terminal window — restart the GUI when done",
+    initFail: "init failed", chapterSaved: "default chapter saved", chapterItems: "items",
     run: "RUN", refresh: "REFRESH",
     copyUrl: "COPY URL", copied: "COPIED",
     loading: "loading…",
@@ -140,6 +146,7 @@ async function loadStatus() {
   const os = `<span>${t("system")}: ${escapeHtml(s.os)} ${escapeHtml(s.arch)}</span>`;
   bar.innerHTML = love + engine + mod + just + os;
   renderProject(s);
+  renderTemplate(s);
 }
 
 /* --- project info --- */
@@ -164,6 +171,55 @@ function renderProject(s) {
     html += `</ul>`;
   }
   box.innerHTML = html;
+}
+
+/* --- template init panel --- */
+
+function renderTemplate(s) {
+  const panel = document.getElementById("template-panel");
+  const tpl = s.template;
+  if (!tpl || !tpl.isTemplate) {
+    panel.hidden = true;
+    return;
+  }
+  panel.hidden = false;
+  const nameInput = document.getElementById("init-name");
+  if (!nameInput.value) nameInput.value = tpl.name || "";
+  const sel = document.getElementById("init-chapter");
+  sel.innerHTML = "";
+  for (const c of tpl.chapters || []) {
+    const opt = document.createElement("option");
+    opt.value = c.number;
+    opt.textContent = `Chapter ${c.number} (${c.items} ${t("chapterItems")})`;
+    sel.appendChild(opt);
+  }
+  if (tpl.chapter) sel.value = String(tpl.chapter);
+}
+
+async function initProject() {
+  const name = document.getElementById("init-name").value.trim();
+  if (!name) {
+    showFlash(t("initFail") + ": " + t("projectName"), true);
+    return;
+  }
+  try {
+    await postJSON("/api/template/init", { name });
+    showFlash(t("initDone"));
+    loadRuns();
+  } catch (err) {
+    showFlash(t("initFail") + ": " + err.message, true);
+  }
+}
+
+async function saveChapter() {
+  const chapter = parseInt(document.getElementById("init-chapter").value, 10);
+  if (!chapter) return;
+  try {
+    await postJSON("/api/template/chapter", { chapter });
+    showFlash(t("chapterSaved") + " — Chapter " + chapter);
+  } catch (err) {
+    showFlash(err.message, true);
+  }
 }
 
 /* --- transient flash message --- */
@@ -373,6 +429,8 @@ function escapeHtml(s) {
 
 document.getElementById("refresh-tasks").onclick = loadTasks;
 document.getElementById("launch-btn").onclick = launchGame;
+document.getElementById("init-btn").onclick = initProject;
+document.getElementById("init-chapter").onchange = saveChapter;
 
 document.getElementById("lang-toggle").onclick = () => {
   lang = lang === "zh" ? "en" : "zh";
