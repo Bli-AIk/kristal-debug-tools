@@ -142,11 +142,10 @@ a:hover { color: var(--cyan-bright); text-decoration: underline; }
   flex-wrap: wrap;
   gap: 6px 18px;
   font-size: 0.9rem;
-  color: var(--dim);
+  color: var(--text);
   z-index: 2;
 }
-.statusbar .ok { color: var(--cyan); }
-.statusbar .warn { color: var(--yellow); }
+/* Only genuine errors stand out. */
 .statusbar .bad { color: var(--danger); }
 
 /* --- layout --- */
@@ -184,6 +183,25 @@ a:hover { color: var(--cyan-bright); text-decoration: underline; }
   gap: 10px;
 }
 
+/* Collapsible panels (the advanced run list): a header row that toggles
+ * the content, with a small pixel triangle marker. */
+details.broken-box summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+details.broken-box summary::-webkit-details-marker { display: none; }
+details.broken-box summary::after {
+  content: "\25B6"; /* ▸ */
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+details[open].broken-box summary::after { content: "\25BE"; } /* ▾ */
+details.broken-box summary:hover::after { color: var(--yellow); }
+
 /* --- buttons & inputs (Shadow's square style) --- */
 
 .btn {
@@ -214,6 +232,16 @@ input[type="text"], input:not([type]), select {
   padding: 0.25em 0.5em;
   width: 100%;
   text-shadow: 0.125em 0.125em #000;
+}
+/* Kill WebKit's native select appearance (pure white) and draw the dark
+ * control + a small pixel arrow instead. */
+select {
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0h10L5 6z' fill='white'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.5em center;
+  padding-right: 2em;
 }
 select option { background: #000; color: var(--text); }
 input:focus, select:focus { outline: none; border-color: var(--yellow); }

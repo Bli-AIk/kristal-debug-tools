@@ -4,12 +4,12 @@
 
 const I18N = {
   zh: {
-    tasks: "任务", launch: "启动游戏", terminal: "输出", runs: "运行记录",
+    tasks: "运行项列表（高级）", launch: "启动游戏", terminal: "输出", runs: "运行记录",
     run: "运行", refresh: "刷新", cancel: "取消",
     copyUrl: "复制地址", copied: "已复制",
     loading: "加载中…",
     fLang: "语言", fEncounter: "遭遇", fWave: "波次", fWaveForce: "强制波次",
-    fTp: "初始 TP", fMercy: "初始宽容", fExtra: "额外参数（透传）",
+    fTp: "初始 TP", fMercy: "初始 mercy", fExtra: "额外参数（透传）",
     love: "love", engine: "引擎", mod: "模组", just: "just",
     loveMissing: "未找到 love（请安装 LÖVE 并加入 PATH）",
     noEngine: "未找到 Kristal 引擎",
@@ -24,7 +24,7 @@ const I18N = {
     noTasks: "没有可运行的任务",
   },
   en: {
-    tasks: "TASKS", launch: "LAUNCH GAME", terminal: "OUTPUT", runs: "RUNS",
+    tasks: "RUN LIST (ADVANCED)", launch: "LAUNCH GAME", terminal: "OUTPUT", runs: "RUNS",
     run: "RUN", refresh: "REFRESH", cancel: "CANCEL",
     copyUrl: "COPY URL", copied: "COPIED",
     loading: "loading…",
