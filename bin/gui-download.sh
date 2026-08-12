@@ -11,9 +11,9 @@ set -eu
 
 MOD_ROOT="${1:-$(pwd)}"
 MODE_ARG="${2:-}"
-# this script lives in <lib>/bin; the gui repo is a sibling checkout at
-# <mod-root>/libraries/kristal-debug-tools-gui — two levels up.
-GUI_REPO_DIR="$(dirname "$0")/../../kristal-debug-tools-gui"
+# GUI source is optional and cloned into <mod-root>/.tools/gui-src
+# (.tools/ is ignored), not into libraries/.
+GUI_REPO_DIR="$MOD_ROOT/.tools/gui-src"
 LOCAL_BIN="$GUI_REPO_DIR/src-tauri/target/release/kristal-debug-tools-gui"
 if [ -x "$LOCAL_BIN" ]; then
     shift 2>/dev/null || true
@@ -71,7 +71,7 @@ case "$MODE_ARG" in
 esac
 
 if [ "$MODE" = compile ]; then
-    if [ ! -d "$GUI_REPO_DIR/.git" ]; then
+    if [ ! -e "$GUI_REPO_DIR/.git" ]; then
         if [ -e "$GUI_REPO_DIR" ]; then
             echo "[kristal-debug-tools] $GUI_REPO_DIR exists but is not a git checkout; remove it or clone manually." >&2
         else
@@ -83,7 +83,7 @@ if [ "$MODE" = compile ]; then
     fi
     # tauri dev only compiles the main bin; build the kristal-run sidecar
     # first or the task list comes up empty.
-    if [ -d "$GUI_REPO_DIR/.git" ] && (cd "$GUI_REPO_DIR" && { [ -d node_modules ] || npm ci; } \
+    if [ -e "$GUI_REPO_DIR/.git" ] && (cd "$GUI_REPO_DIR" && { [ -d node_modules ] || npm ci; } \
         && cargo build --manifest-path src-tauri/Cargo.toml --bin kristal-run \
         && npm run tauri dev); then
         exit 0

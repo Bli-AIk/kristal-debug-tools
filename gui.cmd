@@ -1,6 +1,6 @@
 @echo off
 rem gui.cmd - start the kristal-debug-tools GUI without installing anything.
-rem   - Uses the locally built exe (libraries\kristal-debug-tools-gui\src-tauri\target\release)
+rem   - Uses a locally built exe (.tools\gui\gui-src\src-tauri\target\release)
 rem     when present, so development builds work offline.
 rem   - Detects a local compile toolchain (cargo + node) and asks whether to
 rem     run from source instead; falls back to release binaries.
@@ -10,9 +10,9 @@ rem     compiled into the kristal-run sidecar.
 rem   - Compile mode clones the GUI source repo on demand; the GUI is no
 rem     longer a required submodule.
 setlocal EnableExtensions
-set "GUI_DIR=%~dp0..\kristal-debug-tools-gui"
-set "LOCAL_EXE=%GUI_DIR%\src-tauri\target\release\kristal-debug-tools-gui.exe"
 set "DL_DIR=%~dp0..\..\.tools\gui"
+set "GUI_DIR=%DL_DIR%\gui-src"
+set "LOCAL_EXE=%GUI_DIR%\src-tauri\target\release\kristal-debug-tools-gui.exe"
 set "DL_EXE=%DL_DIR%\kristal-debug-tools-gui-windows-x64.exe"
 set "DL_SIDE=%DL_DIR%\kristal-run-windows-x64.exe"
 
@@ -23,7 +23,6 @@ if exist "%LOCAL_EXE%" (
 
 rem The bin/compile choice is asked once and remembered in
 rem .tools\gui\settings.json; `gui.cmd bin|compile` overrides it.
-set "DL_DIR=%~dp0..\..\.tools\gui"
 set "SETTINGS=%DL_DIR%\settings.json"
 set "MODE="
 set "MODE_ARG="
