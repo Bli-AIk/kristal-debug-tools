@@ -1,19 +1,38 @@
 # kristal-debug-tools
 
-Reusable development tooling for Kristal v0.10 projects. The repository contains
-both the runtime library and the command-line launcher used to start a project
-with battle debugging options.
+[![license](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue)](LICENSE-APACHE) <img src="https://img.shields.io/github/repo-size/Bli-AIk/kristal-debug-tools.svg"/> <img src="https://img.shields.io/github/last-commit/Bli-AIk/kristal-debug-tools.svg"/> <img src="https://img.shields.io/github/v/release/Bli-AIk/kristal-debug-tools.svg"/> <br>
+<img src="https://img.shields.io/badge/Deltarune-001225?style=for-the-badge&labelColor=001225&logo=undertale&logoColor=ff0000" /> <img src="https://img.shields.io/badge/Lua-2C2D72?style=for-the-badge&logo=lua&logoColor=white" /> <img src="https://img.shields.io/badge/Kristal-FF6B35?style=for-the-badge&logo=love2d&logoColor=white" />
 
-## Install
+**kristal-debug-tools** 是一套 Kristal v0.10 开发期的可复用调试工具，包含两部分：运行时库和命令行启动器。启动器让你不用改 `mod.lua` 就能带战斗调试参数启动项目——直接进遭遇战、指定 wave、塞初始 TP 和仁慈值。
 
-Add this repository as a submodule at `libraries/kristal-debug-tools`:
+| 简体中文 | English                 |
+| -------- | ----------------------- |
+| 简体中文 | [English](README_en.md) |
+
+## Kristal 版本支持
+
+| `kristal`                                                                                                      | `kristal-debug-tools` |
+| -------------------------------------------------------------------------------------------------------------- | --------------------- |
+| [v0.10.0](https://github.com/KristalTeam/Kristal/commit/752bc0688ba97ca8a256ba9125b7e05a1ca6edbd) (`752bc068`) | 0.1.0                 |
+
+## 功能
+
+- **运行时库** —— 挂在 Kristal 的调试系统上，全部行为默认仅在开发模式启用，玩家包不受影响
+- **启动器**（`bin/kristal-run`）—— 用 `just` 以任意组合的调试参数启动项目，不改一行 `mod.lua`
+- **语言选择** —— `--lang` 把启动语言传给项目的本地化库，方便直接检查不同语言的界面
+
+## 安装
+
+以子模块方式安装到 `libraries/kristal-debug-tools`：
 
 ```bash
 git submodule add https://github.com/Bli-AIk/kristal-debug-tools.git libraries/kristal-debug-tools
 git submodule update --init --recursive
 ```
 
-Configure the library in `mod.json`:
+以子模块方式安装为**建议方式**；也可以直接下载 [Release 源码](https://github.com/Bli-AIk/kristal-debug-tools/releases)，或克隆仓库最新代码（滚动更新）后放入 `libraries/kristal-debug-tools`。
+
+在 `mod.json` 中配置库：
 
 ```json
 "kristal-debug-tools": {
@@ -25,25 +44,38 @@ Configure the library in `mod.json`:
 }
 ```
 
-The project can be started without changing its `mod.lua`:
+## 用法
+
+不改 `mod.lua` 直接启动：
 
 ```bash
 just --justfile libraries/kristal-debug-tools/justfile run --wave 2 --tp 50
 ```
 
-Projects may add a thin `run` recipe in their own `justfile` to shorten that
-command.
+项目可以在自己的 `justfile` 里加一个薄的 `run` 配方来缩短命令。
 
-## Options
+### 启动器选项
 
-- `--lang`, `--language`, `-l`: select the startup language, such as `en` or
-  `zh-hans`. The value is passed to the project localization library.
-- `--encounter`, `-e`: start directly in an encounter.
-- `--wave`, `-w`: select a wave for the first defending phase. Values can be a
-  one-based position in an enemy's `waves` list or a wave ID.
-- `--wave-force`, `-wf`: select the same wave for every defending phase.
-- `--tp`, `--initial-tp`, `-tp`: set starting TP.
-- `--mercy`, `--initial-mercy`, `-m`: set starting enemy mercy from 0 to 100.
+| 选项                                 | 说明                                                            |
+| ------------------------------------ | --------------------------------------------------------------- |
+| `--lang` / `--language` / `-l`       | 选择启动语言（如 `en`、`zh-hans`），传给项目的本地化库          |
+| `--encounter` / `-e`                 | 直接进入某个遭遇战                                              |
+| `--wave` / `-w`                      | 首个防御阶段使用的 wave：敌人 `waves` 列表的 1 基编号或 wave ID |
+| `--wave-force` / `-wf`               | 每个防御阶段都重复该 wave                                       |
+| `--tp` / `--initial-tp`              | 设置初始 TP                                                     |
+| `--mercy` / `--initial-mercy` / `-m` | 设置初始敌人仁慈值（0–100）                                     |
 
-All runtime behavior is development-only by default. The launcher itself is not
-included in player-facing packages.
+所有运行时行为默认仅限开发模式；启动器本身不会进入面向玩家的发行包。
+
+## 开发
+
+```bash
+just test    # 冒烟测试（tests/smoke.sh）
+```
+
+## 许可
+
+本项目可任选以下许可证使用：
+
+- [Apache License, Version 2.0](LICENSE-APACHE)
+- [MIT License](LICENSE-MIT)
