@@ -45,7 +45,11 @@ case "$MODE_ARG" in
 esac
 
 if [ "$MODE" = compile ]; then
-    if (cd "$GUI_REPO_DIR" && { [ -d node_modules ] || npm ci; } && npm run tauri dev); then
+    # tauri dev only compiles the main bin; build the kristal-run sidecar
+    # first or the task list comes up empty.
+    if (cd "$GUI_REPO_DIR" && { [ -d node_modules ] || npm ci; } \
+        && cargo build --manifest-path src-tauri/Cargo.toml --bin kristal-run \
+        && npm run tauri dev); then
         exit 0
     fi
     echo "[kristal-debug-tools] Local compile failed, falling back to release binaries."

@@ -66,6 +66,9 @@ if not exist node_modules (
     call npm ci
     if errorlevel 1 goto compile-fail
 )
+rem tauri dev only compiles the main bin; the task list needs the sidecar.
+call cargo build --manifest-path src-tauri\Cargo.toml --bin kristal-run
+if errorlevel 1 goto compile-fail
 call npm run tauri dev
 set "DEV_ERR=%ERRORLEVEL%"
 popd

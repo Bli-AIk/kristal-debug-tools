@@ -15,7 +15,9 @@ gui *args:
     @{{ if os() == "windows" { "\"" + justfile_directory() + "/gui.cmd\"" } else { "sh \"" + justfile_directory() + "/bin/gui-download.sh\" \"" + invocation_directory() + "\"" } }} {{ args }}
 
 # Developer mode: run the Tauri GUI from source (needs Rust + Node).
+# The kristal-run sidecar is built first — tauri dev only compiles the
+# main bin, and the task list needs the sidecar.
 gui-dev:
-    @cd "{{ justfile_directory() }}/../kristal-debug-tools-gui" && (test -d node_modules || npm ci) && npm run tauri dev
+    @cd "{{ justfile_directory() }}/../kristal-debug-tools-gui" && (test -d node_modules || npm ci) && cargo build --manifest-path src-tauri/Cargo.toml --bin kristal-run && npm run tauri dev
 
 alias l := run
