@@ -40,7 +40,7 @@
 :root {
   --bg-black: #000;
   --band-blue: #00328E;
-  --panel: rgba(0, 0, 0, 0.78);
+  --panel: rgba(0, 0, 0, 0.75);
   --panel-dim: rgba(0, 0, 0, 0.5);
   --text: #fff;
   --yellow: #ffff00;
@@ -59,39 +59,37 @@ html, body {
   margin: 0;
   padding: 0;
   min-height: 100%;
+  /* The Shadow site's background: the black -> deep-blue band gradient,
+   * with the animated dark-world apng (vendored under assets/,
+   * © Kristal Team / NyakoFox) centered on top. */
   background: linear-gradient(to bottom, var(--bg-black) 94.2%, var(--band-blue) 94.2%) fixed;
+  background-attachment: fixed;
   background-color: var(--bg-black);
 }
 
-/* Slow drifting dark-world glow (a CSS echo of Shadow's animated
- * background — original artwork, not a copy). */
+/* The apng sits on its own fixed layer so image-rendering: pixelated (the
+ * site's crisp scaled look) does not leak into the borders above it. */
 body::before {
   content: "";
   position: fixed;
   inset: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(28% 22% at 18% 22%, rgba(5, 154, 163, 0.14), transparent 70%),
-    radial-gradient(30% 24% at 82% 30%, rgba(0, 126, 163, 0.12), transparent 70%),
-    radial-gradient(40% 30% at 55% 85%, rgba(0, 50, 142, 0.25), transparent 75%);
-  animation: drift 14s ease-in-out infinite alternate;
   z-index: 0;
-}
-@keyframes drift {
-  from { transform: translateY(-1.2%); opacity: 0.85; }
-  to   { transform: translateY(1.2%);  opacity: 1; }
+  pointer-events: none;
+  background: no-repeat center / auto 100% url("assets/background.apng");
+  background-attachment: fixed;
+  image-rendering: pixelated;
 }
 
-/* All sizes are rem so app.js can scale the whole UI to the display DPI by
- * setting the root font-size (16px at 1x, scaled up on HiDPI screens). */
+/* All sizes are rem so app.js can scale the whole UI with CSS zoom
+ * (WebKit-native): zoom scales fonts, borders and paddings together, which
+ * keeps the layout proportional on HiDPI screens and avoids the DPR
+ * mismatch (desktop scale 1 on a 192-DPI panel reports devicePixelRatio 1,
+ * so a pure font-size scale would leave borders/edges at their old size). */
 body {
   font-family: var(--font-regular);
   font-size: 1rem;
   color: var(--text);
-  text-shadow: 2px 2px #000;
-  -webkit-font-smoothing: none;
-  font-smooth: never;
-  image-rendering: pixelated;
+  text-shadow: 0.125em 0.125em #000;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -170,13 +168,13 @@ a:hover { color: var(--cyan-bright); text-decoration: underline; }
 
 .broken-box {
   border: 4px solid transparent;
-  border-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M2 3H10M14 3H22M21 6V10M21 14V18M22 21H14M10 21H2M3 18V14M3 10V6' stroke='white' stroke-width='4' stroke-linecap='square' fill='none'/%3E%3C/svg%3E") 8 repeat;
+  border-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M2 3H10M14 3H22M21 6V10M21 14V18M22 21H14M10 21H2M3 18V14M3 10V6' stroke='white' stroke-width='4' stroke-linecap='square' fill='none'/%3E%3C/svg%3E") 8 round;
   border-image-outset: 4px;
   background-color: var(--panel);
-  padding: 18px 20px;
+  padding: 1.5rem min(2rem, 5vw);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 1rem;
 }
 
 .panel-head {
@@ -197,7 +195,7 @@ a:hover { color: var(--cyan-bright); text-decoration: underline; }
   font-size: 1rem;
   padding: 0.35em 0.9em;
   cursor: pointer;
-  text-shadow: 2px 2px #000;
+  text-shadow: 0.125em 0.125em #000;
 }
 .btn:hover { color: var(--yellow); border-color: var(--yellow); }
 .btn.small { padding: 0.15em 0.6em; font-size: 0.85rem; }
@@ -206,8 +204,8 @@ a:hover { color: var(--cyan-bright); text-decoration: underline; }
 .btn:disabled { opacity: 0.4; cursor: default; }
 .btn:disabled:hover { color: var(--text); border-color: var(--text); }
 
-input[type="text"], input:not([type]) {
-  background: transparent;
+input[type="text"], input:not([type]), select {
+  background: rgba(0, 0, 0, 0.6);
   border: 2px solid var(--text);
   border-radius: 0;
   color: var(--text);
@@ -215,9 +213,10 @@ input[type="text"], input:not([type]) {
   font-size: 0.95rem;
   padding: 0.25em 0.5em;
   width: 100%;
-  text-shadow: 2px 2px #000;
+  text-shadow: 0.125em 0.125em #000;
 }
-input:focus { outline: none; border-color: var(--yellow); }
+select option { background: #000; color: var(--text); }
+input:focus, select:focus { outline: none; border-color: var(--yellow); }
 
 /* --- forms --- */
 

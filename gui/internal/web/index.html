@@ -13,6 +13,9 @@
     <span class="title">KRISTAL DEBUG TOOLS</span>
     <span class="nav-right">
       <button id="copy-url" class="btn">COPY URL</button>
+      <button id="scale-down" class="btn small" title="zoom out">A&#8722;</button>
+      <button id="scale-label" class="btn small" title="reset zoom">100%</button>
+      <button id="scale-up" class="btn small" title="zoom in">A&#43;</button>
       <button id="lang-toggle" class="btn">EN</button>
     </span>
   </div>
@@ -23,18 +26,14 @@
 <main class="layout">
   <section class="col">
     <div class="broken-box panel">
-      <div class="panel-head">
-        <h2 data-i18n="tasks">TASKS</h2>
-        <button id="refresh-tasks" class="btn small" title="refresh">&#8635;</button>
-      </div>
-      <div id="task-list" class="task-list"><p class="hint" data-i18n="loading">loading…</p></div>
-    </div>
-
-    <div class="broken-box panel">
       <h2 data-i18n="launch">LAUNCH GAME</h2>
       <div class="form-grid">
         <label><span data-i18n="fLang">LANGUAGE</span>
-          <input id="la-lang" placeholder="en / zh-hans" autocomplete="off"></label>
+          <select id="la-lang">
+            <option value="">—</option>
+            <option value="en">English (en)</option>
+            <option value="zh-hans">简体中文 (zh-hans)</option>
+          </select></label>
         <label><span data-i18n="fEncounter">ENCOUNTER</span>
           <input id="la-encounter" placeholder="encounter id" autocomplete="off"></label>
         <label><span data-i18n="fWave">WAVE</span>
@@ -52,6 +51,14 @@
         <button id="launch-btn" class="btn big">&#9654; <span data-i18n="launch">LAUNCH</span></button>
         <div id="launch-hint" class="hint"></div>
       </div>
+    </div>
+
+    <div class="broken-box panel">
+      <div class="panel-head">
+        <h2 data-i18n="tasks">TASKS</h2>
+        <button id="refresh-tasks" class="btn small" title="refresh">&#8635;</button>
+      </div>
+      <div id="task-list" class="task-list"><p class="hint" data-i18n="loading">loading…</p></div>
     </div>
   </section>
 

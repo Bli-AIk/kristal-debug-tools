@@ -59,13 +59,37 @@ function applyI18n() {
   document.title = "Kristal Debug Tools";
 }
 
-/* Scale the whole UI (rem-based) to the display DPI: 1x → 100%, 1.5x →
- * 125%, 2x → 160%. Re-applied on resize so moving the window between
- * monitors with different scale factors stays comfortable. */
-function applyDpiScale() {
+/* Scale the whole UI with CSS zoom (WebKit-native; scales fonts, borders and
+ * paddings together, so the layout stays proportional). devicePixelRatio
+ * alone is not enough: a 192-DPI panel with desktop scale 1 reports dpr 1,
+ * so we default to >= 1.25 (= Shadow's 20px body text) and let the user
+ * adjust with the A− / A+ buttons (persisted). */
+const MIN_SCALE = 0.75, MAX_SCALE = 3, BASE_SCALE = 1.25;
+
+function dprDefaultScale() {
   const dpr = window.devicePixelRatio || 1;
-  const scale = Math.min(1.6, Math.max(1, 0.6 + dpr * 0.5));
-  document.documentElement.style.fontSize = Math.round(16 * scale) + "px";
+  return Math.min(1.6, Math.max(BASE_SCALE, 0.6 + dpr * 0.5));
+}
+
+function currentScale() {
+  let s = parseFloat(localStorage.getItem("kdt-scale"));
+  if (!(s >= MIN_SCALE && s <= MAX_SCALE)) {
+    s = dprDefaultScale();
+  }
+  return s;
+}
+
+function applyDpiScale() {
+  const s = currentScale();
+  document.documentElement.style.zoom = s.toFixed(3);
+  const label = document.getElementById("scale-label");
+  if (label) label.textContent = Math.round(s * 100) + "%";
+}
+
+function setScale(s) {
+  s = Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
+  localStorage.setItem("kdt-scale", String(s));
+  applyDpiScale();
 }
 
 /* --- API helpers --- */
@@ -391,6 +415,10 @@ if (window.matchMedia) {
   window.matchMedia(`(resolution: ${(window.devicePixelRatio || 1).toFixed(2)}dppx)`)
     .addEventListener("change", applyDpiScale);
 }
+
+document.getElementById("scale-down").onclick = () => setScale(currentScale() / 1.15);
+document.getElementById("scale-up").onclick = () => setScale(currentScale() * 1.15);
+document.getElementById("scale-label").onclick = () => setScale(dprDefaultScale());
 
 applyI18n();
 loadStatus();
