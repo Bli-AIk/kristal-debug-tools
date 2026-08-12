@@ -148,6 +148,8 @@ a:hover { color: var(--cyan-bright); text-decoration: underline; }
 }
 /* Only genuine errors stand out. */
 .statusbar .bad { color: var(--danger); }
+.flash { color: var(--yellow); }
+.flash.err { color: var(--danger); }
 
 /* --- layout --- */
 
@@ -312,6 +314,16 @@ input:focus, select:focus { outline: none; border-color: var(--yellow); }
 .terminal .okline { color: var(--cyan); }
 .terminal .excline { color: var(--yellow); }
 .terminal .excline.bad { color: var(--danger); }
+
+/* --- project info --- */
+
+.project-info { display: flex; flex-direction: column; gap: 0.3em; }
+.proj-name { font-family: var(--font-bold); font-size: 1.15rem; }
+.proj-sub { color: var(--muted); font-size: 0.85rem; }
+.proj-libs { margin-top: 0.4em; color: var(--dim); font-size: 0.85rem; }
+.proj-list { margin: 0.2em 0 0; padding-left: 1.4em; display: flex; flex-direction: column; gap: 0.15em; }
+.proj-list .lib-id { color: var(--text); }
+.proj-list .lib-ver { color: var(--muted); font-size: 0.85em; }
 
 /* --- runs log --- */
 

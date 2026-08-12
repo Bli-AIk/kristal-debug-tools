@@ -1,7 +1,9 @@
 // Package server hosts the GUI's HTTP API and embedded frontend. It binds to
-// 127.0.0.1 only; there are no arbitrary-command endpoints — runs are just
-// recipes of a fixed justfile, and the game launch uses the launcher's
-// whitelisted flags plus passthrough, exactly like the CLI.
+// 127.0.0.1 only. Games and just tasks are launched in a NEW terminal window
+// (internal/termrun) detached from the GUI; there are no arbitrary-command
+// endpoints — runs are just recipes of a fixed justfile, and the game launch
+// uses the launcher's whitelisted flags plus passthrough, exactly like the
+// CLI.
 package server
 
 import (
@@ -12,12 +14,14 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/Bli-AIk/kristal-debug-tools/gui/internal/justbin"
 	"github.com/Bli-AIk/kristal-debug-tools/gui/internal/launcher"
 	"github.com/Bli-AIk/kristal-debug-tools/gui/internal/tasklist"
+	"github.com/Bli-AIk/kristal-debug-tools/gui/internal/termrun"
 	"github.com/Bli-AIk/kristal-debug-tools/gui/internal/web"
 )
 
@@ -34,6 +38,10 @@ type Options struct {
 	JustMode    string // "system" | "embedded" | "cache" | "none"
 	JustVersion string // best-effort "1.58.0"
 	LovePath    string // "" = love not found
+
+	// Spawn opens argv in a new interactive terminal window; overridable in
+	// tests.
+	Spawn func(title string, argv []string, dir string) error
 }
 
 // Server serves the GUI.
@@ -44,6 +52,9 @@ type Server struct {
 }
 
 func New(opts Options) *Server {
+	if opts.Spawn == nil {
+		opts.Spawn = termrun.Spawn
+	}
 	s := &Server{opts: opts, runs: newRunManager()}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/status", s.handleStatus)
@@ -51,8 +62,6 @@ func New(opts Options) *Server {
 	mux.HandleFunc("POST /api/tasks/refresh", s.handleTasks)
 	mux.HandleFunc("POST /api/runs", s.handleRun)
 	mux.HandleFunc("GET /api/runs", s.handleRuns)
-	mux.HandleFunc("GET /api/runs/{id}/stream", s.handleStream)
-	mux.HandleFunc("POST /api/runs/{id}/cancel", s.handleCancel)
 	mux.HandleFunc("POST /api/game/launch", s.handleLaunch)
 	mux.Handle("/", http.FileServer(http.FS(web.FS)))
 	s.mux = mux
@@ -73,7 +82,15 @@ func writeError(w http.ResponseWriter, code int, msg string) {
 
 // --- endpoints ---
 
+// libraryInfo is one entry of the project's libraries/ directory.
+type libraryInfo struct {
+	ID      string   `json:"id"`
+	Version string   `json:"version"`
+	Authors []string `json:"authors,omitempty"`
+}
+
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
+	name, subtitle, libs := projectInfo(s.opts.ModRoot)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"modRoot":    s.opts.ModRoot,
 		"modID":      s.opts.ModID,
@@ -90,7 +107,103 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		},
 		"os":   runtime.GOOS,
 		"arch": runtime.GOARCH,
+		"project": map[string]any{
+			"id":       s.opts.ModID,
+			"name":     name,
+			"subtitle": subtitle,
+		},
+		"libraries": libs,
 	})
+}
+
+// projectInfo reads the mod's identity (mod.json) and its dependency
+// libraries (libraries/*/lib.json). Kristal's JSON files are JSONC, so line
+// comments are stripped before parsing; anything unreadable is skipped.
+func projectInfo(modRoot string) (name, subtitle string, libs []libraryInfo) {
+	if data, err := os.ReadFile(filepath.Join(modRoot, "mod.json")); err == nil {
+		var m struct {
+			Name     string `json:"name"`
+			Subtitle string `json:"subtitle"`
+		}
+		if json.Unmarshal(stripJSONComments(data), &m) == nil {
+			name, subtitle = m.Name, m.Subtitle
+		}
+	}
+	entries, err := os.ReadDir(filepath.Join(modRoot, "libraries"))
+	if err != nil {
+		return name, subtitle, nil
+	}
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(modRoot, "libraries", e.Name(), "lib.json"))
+		if err != nil {
+			continue
+		}
+		var li libraryInfo
+		if json.Unmarshal(stripJSONComments(data), &li) != nil || li.ID == "" {
+			continue
+		}
+		libs = append(libs, li)
+	}
+	sort.Slice(libs, func(i, j int) bool { return libs[i].ID < libs[j].ID })
+	return name, subtitle, libs
+}
+
+// stripJSONComments removes // line comments, /* */ blocks and trailing
+// commas, keeping strings intact (a pragmatic JSONC preprocessor for
+// mod.json / lib.json, which are written with comments and trailing commas).
+func stripJSONComments(data []byte) []byte {
+	var out bytes.Buffer
+	inStr, esc := false, false
+	trimTrailingComma := func() {
+		// Drop a ',' plus following whitespace at the end of the buffer.
+		b := out.Bytes()
+		i := len(b) - 1
+		for i >= 0 && (b[i] == ' ' || b[i] == '\t' || b[i] == '\n' || b[i] == '\r') {
+			i--
+		}
+		if i >= 0 && b[i] == ',' {
+			out.Truncate(i)
+		}
+	}
+	for i := 0; i < len(data); i++ {
+		c := data[i]
+		if inStr {
+			out.WriteByte(c)
+			if esc {
+				esc = false
+			} else if c == '\\' {
+				esc = true
+			} else if c == '"' {
+				inStr = false
+			}
+			continue
+		}
+		switch {
+		case c == '"':
+			inStr = true
+			out.WriteByte(c)
+		case c == '/' && i+1 < len(data) && data[i+1] == '/':
+			for i < len(data) && data[i] != '\n' {
+				i++
+			}
+			out.WriteByte('\n')
+		case c == '/' && i+1 < len(data) && data[i+1] == '*':
+			i += 2
+			for i+1 < len(data) && !(data[i] == '*' && data[i+1] == '/') {
+				i++
+			}
+			i++ // skip the closing '/'
+		case c == '}' || c == ']':
+			trimTrailingComma()
+			out.WriteByte(c)
+		default:
+			out.WriteByte(c)
+		}
+	}
+	return out.Bytes()
 }
 
 func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
@@ -120,40 +233,15 @@ func (s *Server) handleRun(w http.ResponseWriter, r *http.Request) {
 	argv := []string{s.opts.JustPath, "--justfile", s.opts.Justfile, req.Task}
 	argv = append(argv, req.Args...)
 	cmdStr := strings.Join(quoteAll(argv), " ")
-	id, err := s.runs.startFromCmd(req.Task, cmdStr, argv, s.opts.ModRoot)
-	if err != nil {
+	if err := s.opts.Spawn(req.Task, argv, s.opts.ModRoot); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]int{"id": id})
+	writeJSON(w, http.StatusOK, map[string]int{"id": s.runs.add(req.Task, cmdStr)})
 }
 
 func (s *Server) handleRuns(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"runs": s.runs.logSnapshot()})
-}
-
-func (s *Server) handleStream(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.Atoi(r.PathValue("id"))
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "bad run id")
-		return
-	}
-	s.runs.stream(w, r, id)
-}
-
-func (s *Server) handleCancel(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.Atoi(r.PathValue("id"))
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "bad run id")
-		return
-	}
-	rs, ok := s.runs.get(id)
-	if !ok {
-		writeError(w, http.StatusNotFound, "unknown run")
-		return
-	}
-	rs.cancel()
-	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
 // launchRequest mirrors the CLI launcher's flag surface (see
@@ -210,7 +298,12 @@ func (s *Server) handleLaunch(w http.ResponseWriter, r *http.Request) {
 	if mercy := stringify(req.Mercy); mercy != "" {
 		argv = append(argv, "--mercy", mercy)
 	}
-	argv = append(argv, req.Passthrough...)
+	// Extra args are game args, i.e. what the CLI takes after `--`; the
+	// launcher's own parser would reject unknown -* options otherwise.
+	if len(req.Passthrough) > 0 {
+		argv = append(argv, "--")
+		argv = append(argv, req.Passthrough...)
+	}
 
 	args, err := launcher.ParseArgs(argv)
 	if err != nil {
@@ -223,12 +316,12 @@ func (s *Server) handleLaunch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cmdStr := strings.Join(quoteAll(cmd.Args), " ")
-	id, err := s.runs.startFromCmd("launch game", cmdStr, cmd.Args, cmd.Dir)
-	if err != nil {
+	title := "Kristal Debug — " + s.opts.ModID
+	if err := s.opts.Spawn(title, cmd.Args, cmd.Dir); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]int{"id": id})
+	writeJSON(w, http.StatusOK, map[string]int{"id": s.runs.add("launch game", cmdStr)})
 }
 
 func quoteAll(argv []string) []string {

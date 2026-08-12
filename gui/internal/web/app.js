@@ -4,44 +4,48 @@
 
 const I18N = {
   zh: {
-    tasks: "运行项列表（高级）", launch: "启动游戏", terminal: "输出", runs: "运行记录",
-    run: "运行", refresh: "刷新", cancel: "取消",
+    tasks: "运行项列表（高级）", launch: "启动游戏", notice: "说明", runs: "运行记录",
+    project: "项目信息", system: "系统", libraries: "依赖库",
+    run: "运行", refresh: "刷新",
     copyUrl: "复制地址", copied: "已复制",
     loading: "加载中…",
     fLang: "语言", fEncounter: "遭遇", fWave: "波次", fWaveForce: "强制波次",
-    fTp: "初始 TP", fMercy: "初始 mercy", fExtra: "额外参数（透传）",
+    fTp: "初始 TP", fMercy: "初始 mercy", fExtra: "额外参数",
     love: "love", engine: "引擎", mod: "模组", just: "just",
     loveMissing: "未找到 love（请安装 LÖVE 并加入 PATH）",
     noEngine: "未找到 Kristal 引擎",
     noMod: "未找到 mod",
     justNone: "不可用",
     justSystem: "系统", justEmbedded: "内置", justCache: "缓存",
-    running: "运行中", exited: "退出码", started: "开始", duration: "耗时",
-    empty: "（空）",
-    termPlaceholder: "—",
-    launchRunning: "正在启动游戏…", launchOk: "已启动，输出见右侧终端",
-    taskFail: "运行失败", justUnavailable: "just 不可用，无法列出任务",
+    started: "开始", empty: "（空）",
+    noticeText: "游戏与任务会打开在独立终端窗口（可交互），输出不再显示在这里。",
+    launchOk: "游戏已在新终端窗口中启动",
+    taskStarted: "任务已在新终端窗口中启动",
+    taskFail: "启动失败", justUnavailable: "just 不可用，无法列出任务",
     noTasks: "没有可运行的任务",
+    spawned: "已在新终端启动",
   },
   en: {
-    tasks: "RUN LIST (ADVANCED)", launch: "LAUNCH GAME", terminal: "OUTPUT", runs: "RUNS",
-    run: "RUN", refresh: "REFRESH", cancel: "CANCEL",
+    tasks: "RUN LIST (ADVANCED)", launch: "LAUNCH GAME", notice: "NOTICE", runs: "RUNS",
+    project: "PROJECT", system: "system", libraries: "libraries",
+    run: "RUN", refresh: "REFRESH",
     copyUrl: "COPY URL", copied: "COPIED",
     loading: "loading…",
     fLang: "LANGUAGE", fEncounter: "ENCOUNTER", fWave: "WAVE", fWaveForce: "WAVE FORCE",
-    fTp: "TP", fMercy: "MERCY", fExtra: "EXTRA ARGS (PASSTHROUGH)",
+    fTp: "TP", fMercy: "MERCY", fExtra: "EXTRA ARGS",
     love: "love", engine: "engine", mod: "mod", just: "just",
     loveMissing: "love not found (install LÖVE and add it to PATH)",
     noEngine: "Kristal engine not found",
     noMod: "mod not found",
     justNone: "unavailable",
     justSystem: "system", justEmbedded: "embedded", justCache: "cache",
-    running: "running", exited: "exit", started: "started", duration: "took",
-    empty: "(empty)",
-    termPlaceholder: "—",
-    launchRunning: "launching…", launchOk: "launched — output on the right",
-    taskFail: "run failed", justUnavailable: "just unavailable — no tasks to list",
+    started: "started", empty: "(empty)",
+    noticeText: "Game and tasks open in a separate interactive terminal window — output no longer appears here.",
+    launchOk: "game launched in a new terminal window",
+    taskStarted: "task started in a new terminal window",
+    taskFail: "start failed", justUnavailable: "just unavailable — no tasks to list",
     noTasks: "no runnable tasks",
+    spawned: "spawned in new terminal",
   },
 };
 
@@ -108,35 +112,67 @@ const postJSON = (path, body) => api(path, {
   body: JSON.stringify(body),
 });
 
-/* --- state --- */
-
-let currentRun = null; // { id, es }
-let statusData = null;
-
 /* --- status bar --- */
 
 async function loadStatus() {
   const bar = document.getElementById("statusbar");
+  let s;
   try {
-    statusData = await api("/api/status");
+    s = await api("/api/status");
   } catch (err) {
     bar.innerHTML = `<span class="bad">status: ${escapeHtml(err.message)}</span>`;
     return;
   }
-  const s = statusData;
   const just = s.just.mode === "none"
     ? `<span class="bad">${t("just")}: ${t("justNone")}</span>`
-    : `<span class="${s.just.mode === "system" ? "ok" : "warn"}">${t("just")}: ${t("just" + s.just.mode[0].toUpperCase() + s.just.mode.slice(1))} ${s.just.version || ""}</span>`;
+    : `<span>${t("just")}: ${t("just" + s.just.mode[0].toUpperCase() + s.just.mode.slice(1))} ${s.just.version || ""}</span>`;
   const love = s.love.found
-    ? `<span class="ok">${t("love")}: ${escapeHtml(s.love.path)}</span>`
+    ? `<span>${t("love")}: ${escapeHtml(s.love.path)}</span>`
     : `<span class="bad">${t("loveMissing")}</span>`;
   const engine = s.engineRoot
-    ? `<span class="ok">${t("engine")}: ${escapeHtml(s.engineRoot)}</span>`
+    ? `<span>${t("engine")}: ${escapeHtml(s.engineRoot)}</span>`
     : `<span class="bad">${t("noEngine")}</span>`;
   const mod = s.modRoot
-    ? `<span class="ok">${t("mod")}: ${escapeHtml(s.modRoot)}</span>`
+    ? `<span>${t("mod")}: ${escapeHtml(s.modRoot)}</span>`
     : `<span class="bad">${t("noMod")}</span>`;
-  bar.innerHTML = love + engine + mod + just;
+  const os = `<span>${t("system")}: ${escapeHtml(s.os)} ${escapeHtml(s.arch)}</span>`;
+  bar.innerHTML = love + engine + mod + just + os;
+  renderProject(s);
+}
+
+/* --- project info --- */
+
+function renderProject(s) {
+  const panel = document.getElementById("project-panel");
+  const box = document.getElementById("project-info");
+  if (!s.project || !s.project.id) {
+    panel.hidden = true;
+    return;
+  }
+  panel.hidden = false;
+  let html = `<div class="proj-name">${escapeHtml(s.project.name || s.project.id)}</div>`;
+  if (s.project.subtitle) {
+    html += `<div class="proj-sub">${escapeHtml(s.project.subtitle)}</div>`;
+  }
+  if (s.libraries && s.libraries.length) {
+    html += `<div class="proj-libs">${t("libraries")}:</div><ul class="proj-list">`;
+    for (const lib of s.libraries) {
+      html += `<li><span class="lib-id">${escapeHtml(lib.id)}</span> <span class="lib-ver">${escapeHtml(lib.version || "")}</span></li>`;
+    }
+    html += `</ul>`;
+  }
+  box.innerHTML = html;
+}
+
+/* --- transient flash message --- */
+
+let flashTimer = null;
+function showFlash(msg, isErr) {
+  const el = document.getElementById("flash");
+  el.textContent = msg;
+  el.className = "flash" + (isErr ? " err" : "");
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => { el.textContent = ""; el.className = "flash"; }, 4000);
 }
 
 /* --- tasks --- */
@@ -249,13 +285,12 @@ function collectTaskArgs(task) {
 }
 
 async function runTask(task, args) {
-  clearTerminal();
-  setRunning(false);
   try {
-    const { id } = await postJSON("/api/runs", { task: task.name, args });
-    openRun(id);
+    await postJSON("/api/runs", { task: task.name, args });
+    showFlash(t("taskStarted"));
+    loadRuns();
   } catch (err) {
-    appendTerm(t("taskFail") + ": " + err.message, "err");
+    showFlash(t("taskFail") + ": " + err.message, true);
   }
 }
 
@@ -264,13 +299,8 @@ async function runTask(task, args) {
 async function launchGame() {
   const val = (id) => document.getElementById(id).value.trim();
   const passthrough = val("la-extra").split(/\s+/).filter(Boolean);
-  clearTerminal();
-  setRunning(false);
-  const hint = document.getElementById("launch-hint");
-  hint.textContent = "";
-  hint.className = "hint";
   try {
-    const { id } = await postJSON("/api/game/launch", {
+    await postJSON("/api/game/launch", {
       lang: val("la-lang"),
       encounter: val("la-encounter"),
       wave: val("la-wave"),
@@ -279,69 +309,11 @@ async function launchGame() {
       mercy: val("la-mercy"),
       passthrough,
     });
-    hint.textContent = t("launchOk");
-    hint.className = "hint ok";
-    openRun(id);
+    showFlash(t("launchOk"));
+    loadRuns();
   } catch (err) {
-    hint.textContent = err.message;
-    hint.className = "hint err";
-    appendTerm(err.message, "err");
+    showFlash(err.message, true);
   }
-}
-
-/* --- terminal + SSE --- */
-
-const term = document.getElementById("terminal");
-
-function clearTerminal() {
-  term.textContent = "";
-  term.removeAttribute("data-empty");
-}
-
-function appendTerm(text, cls) {
-  const span = document.createElement("span");
-  if (cls) span.className = cls;
-  span.textContent = text;
-  term.appendChild(span);
-  term.scrollTop = term.scrollHeight;
-}
-
-function setRunning(on) {
-  const btn = document.getElementById("cancel-btn");
-  btn.hidden = !on;
-  if (on && currentRun) btn.disabled = false;
-}
-
-function openRun(id) {
-  if (currentRun && currentRun.es) currentRun.es.close();
-  currentRun = { id, es: null };
-  setRunning(true);
-  const es = new EventSource(`/api/runs/${id}/stream`);
-  currentRun.es = es;
-  es.onmessage = (e) => {
-    let ev;
-    try { ev = JSON.parse(e.data); } catch (_) { return; }
-    if (ev.type === "exit") {
-      appendTerm("\n[" + t("exited") + " " + ev.code + "]", ev.code === 0 ? "excline" : "excline bad");
-      es.close();
-      setRunning(false);
-      loadRuns();
-    } else if (ev.type === "error") {
-      appendTerm(ev.message || "", "err");
-    } else {
-      appendTerm(ev.text, ev.stream === "stderr" ? "err" : "");
-    }
-  };
-  es.onerror = () => {
-    /* The server closes the stream after the exit event (we already closed);
-       transient errors auto-reconnect. */
-  };
-}
-
-async function cancelRun() {
-  if (!currentRun) return;
-  const { id } = currentRun;
-  try { await postJSON(`/api/runs/${id}/cancel`, {}); } catch (_) { /* best effort */ }
 }
 
 /* --- runs log --- */
@@ -367,11 +339,8 @@ async function loadRuns() {
     cmd.title = r.command;
     const meta = document.createElement("span");
     meta.className = "r-meta";
-    meta.textContent = (r.duration || t("running")) + " ";
-    const code = document.createElement("span");
-    code.className = "r-code " + (r.code < 0 ? "run" : r.code === 0 ? "ok" : "bad");
-    code.textContent = r.code < 0 ? t("running") : t("exited") + " " + r.code;
-    row.append(label, cmd, meta, code);
+    meta.textContent = t("spawned");
+    row.append(label, cmd, meta);
     box.appendChild(row);
   }
 }
@@ -387,7 +356,6 @@ function escapeHtml(s) {
 /* --- wire up --- */
 
 document.getElementById("refresh-tasks").onclick = loadTasks;
-document.getElementById("cancel-btn").onclick = cancelRun;
 document.getElementById("launch-btn").onclick = launchGame;
 
 document.getElementById("lang-toggle").onclick = () => {

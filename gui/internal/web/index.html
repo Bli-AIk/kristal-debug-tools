@@ -21,7 +21,7 @@
   </div>
 </header>
 
-<div id="statusbar" class="statusbar"></div>
+<div id="statusbar" class="statusbar"><span id="flash" class="flash"></span></div>
 
 <main class="layout">
   <section class="col">
@@ -60,15 +60,17 @@
       </summary>
       <div id="task-list" class="task-list"><p class="hint" data-i18n="loading">loading…</p></div>
     </details>
+
+    <div class="broken-box panel" id="project-panel" hidden>
+      <h2 data-i18n="project">PROJECT</h2>
+      <div id="project-info" class="project-info"></div>
+    </div>
   </section>
 
   <section class="col">
-    <div class="broken-box panel terminal-panel">
-      <div class="panel-head">
-        <h2 data-i18n="terminal">OUTPUT</h2>
-        <button id="cancel-btn" class="btn small danger" hidden>&#10005; <span data-i18n="cancel">CANCEL</span></button>
-      </div>
-      <pre id="terminal" class="terminal" data-i18n-placeholder="termPlaceholder">—</pre>
+    <div class="broken-box panel">
+      <h2 data-i18n="notice">NOTICE</h2>
+      <p class="hint" data-i18n="noticeText">Game and tasks open in a separate interactive terminal window; output no longer appears here.</p>
     </div>
 
     <div class="broken-box panel">
