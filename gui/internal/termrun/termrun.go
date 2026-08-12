@@ -14,22 +14,31 @@ import (
 )
 
 // Command builds the terminal-emulator invocation that runs argv in a new
-// interactive window. It is pure (no side effects) for testability.
-func Command(title string, argv []string, dir string) (*exec.Cmd, error) {
+// interactive window. With pause, the window stays open after the command
+// exits (for reading task output); without it, the window closes together
+// with the command — used for the game, so closing the game closes its
+// companion terminal. It is pure (no side effects) for testability.
+func Command(title string, argv []string, dir string, pause bool) (*exec.Cmd, error) {
 	cmdline := strings.Join(quote(argv), " ")
 	switch runtime.GOOS {
 	case "windows":
-		// start "title" cmd /k <cmdline>: a new console window that stays
-		// open (/k) after the command exits.
-		return exec.Command("cmd", "/c", "start", title, "cmd", "/k", cmdline), nil
+		// start "title" cmd <flag> <cmdline>: a new console window; /k keeps
+		// it open after the command, /c closes it with the command.
+		flag := "/k"
+		if !pause {
+			flag = "/c"
+		}
+		return exec.Command("cmd", "/c", "start", title, "cmd", flag, cmdline), nil
 	default:
 		term, err := findTerminal()
 		if err != nil {
 			return nil, err
 		}
-		// Run the command, then pause so the window stays open for reading
-		// the output.
-		wrapper := cmdline + `; echo; echo "[kristal-debug-tools] finished — press Enter to close"; read _`
+		wrapper := cmdline
+		if pause {
+			// Stay open for reading the output.
+			wrapper += `; echo; echo "[kristal-debug-tools] finished — press Enter to close"; read _`
+		}
 		args := []string{"sh", "-c", wrapper}
 		if strings.Contains(term, "gnome-terminal") {
 			args = append([]string{"--"}, args...)
@@ -41,8 +50,8 @@ func Command(title string, argv []string, dir string) (*exec.Cmd, error) {
 }
 
 // Spawn opens the terminal window and detaches from the GUI process.
-func Spawn(title string, argv []string, dir string) error {
-	c, err := Command(title, argv, dir)
+func Spawn(title string, argv []string, dir string, pause bool) error {
+	c, err := Command(title, argv, dir, pause)
 	if err != nil {
 		return err
 	}

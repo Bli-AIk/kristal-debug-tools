@@ -28,7 +28,7 @@ type fakeSpawner struct {
 	dirs []string
 }
 
-func (f *fakeSpawner) Spawn(_ string, argv []string, dir string) error {
+func (f *fakeSpawner) Spawn(_ string, argv []string, dir string, _ bool) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.args = append(f.args, append([]string(nil), argv...))

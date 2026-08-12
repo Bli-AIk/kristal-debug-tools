@@ -4,7 +4,7 @@
 
 const I18N = {
   zh: {
-    tasks: "运行项列表（高级）", launch: "启动游戏", notice: "说明", runs: "运行记录",
+    tasks: "运行项列表（高级）", launch: "启动游戏", runs: "运行记录",
     project: "项目信息", system: "系统", libraries: "依赖库",
     run: "运行", refresh: "刷新",
     copyUrl: "复制地址", copied: "已复制",

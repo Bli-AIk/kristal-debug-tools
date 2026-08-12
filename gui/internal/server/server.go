@@ -39,9 +39,9 @@ type Options struct {
 	JustVersion string // best-effort "1.58.0"
 	LovePath    string // "" = love not found
 
-	// Spawn opens argv in a new interactive terminal window; overridable in
-	// tests.
-	Spawn func(title string, argv []string, dir string) error
+	// Spawn opens argv in a new interactive terminal window; pause keeps the
+	// window open after the command exits. Overridable in tests.
+	Spawn func(title string, argv []string, dir string, pause bool) error
 }
 
 // Server serves the GUI.
@@ -233,7 +233,7 @@ func (s *Server) handleRun(w http.ResponseWriter, r *http.Request) {
 	argv := []string{s.opts.JustPath, "--justfile", s.opts.Justfile, req.Task}
 	argv = append(argv, req.Args...)
 	cmdStr := strings.Join(quoteAll(argv), " ")
-	if err := s.opts.Spawn(req.Task, argv, s.opts.ModRoot); err != nil {
+	if err := s.opts.Spawn(req.Task, argv, s.opts.ModRoot, true); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -317,7 +317,8 @@ func (s *Server) handleLaunch(w http.ResponseWriter, r *http.Request) {
 	}
 	cmdStr := strings.Join(quoteAll(cmd.Args), " ")
 	title := "Kristal Debug — " + s.opts.ModID
-	if err := s.opts.Spawn(title, cmd.Args, cmd.Dir); err != nil {
+	// The game's terminal closes together with the game window (no pause).
+	if err := s.opts.Spawn(title, cmd.Args, cmd.Dir, false); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
