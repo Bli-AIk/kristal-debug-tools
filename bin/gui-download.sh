@@ -6,7 +6,9 @@
 set -eu
 
 MOD_ROOT="${1:-$(pwd)}"
-GUI_REPO_DIR="$(dirname "$0")/../kristal-debug-tools-gui"
+# this script lives in <lib>/bin; the gui repo is a sibling submodule at
+# <mod-root>/libraries/kristal-debug-tools-gui — two levels up.
+GUI_REPO_DIR="$(dirname "$0")/../../kristal-debug-tools-gui"
 LOCAL_BIN="$GUI_REPO_DIR/src-tauri/target/release/kristal-debug-tools-gui"
 if [ -x "$LOCAL_BIN" ]; then
     shift 2>/dev/null || true
