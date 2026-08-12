@@ -54,6 +54,18 @@ just --justfile libraries/kristal-debug-tools/justfile run --wave 2 --tp 50
 
 项目可以在自己的 `justfile` 里加一个薄的 `run` 配方来缩短命令。
 
+### 图形界面（GUI）
+
+没装 `just` 也能用——图形界面（[kristal-debug-tools-gui](https://github.com/Bli-AIk/kristal-debug-tools-gui)）把启动器、任务列表、章节配置都变成可视化操作：
+
+```bash
+just --justfile libraries/kristal-debug-tools/justfile gui
+```
+
+或者 Windows 双击库目录下的 `gui.cmd`。首次运行自动下载最新 release 二进制（SHA256 校验），之后直接用缓存。**不需要 just / Rust / Node**；只需要 LÖVE 装好并进 PATH（Git Bash 进 PATH 后，GUI 里跑构建类任务也没问题）。`just` 已编译进程序本体。
+
+启动前自动检测：本地有编译好的用本地的；检测到编译环境（cargo + node）会问一句"用 release bin 还是本地编译"，5 秒不答默认 bin。
+
 ### 启动器选项
 
 | 选项                                 | 说明                                                            |

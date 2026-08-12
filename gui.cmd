@@ -18,10 +18,10 @@ if exist "%LOCAL_EXE%" (
     exit /b %ERRORLEVEL%
 )
 
-rem The bin/compile choice is asked once and remembered in .tools\gui\.mode;
-rem `gui.cmd bin|compile` overrides it.
+rem The bin/compile choice is asked once and remembered in
+rem .tools\gui\settings.json; `gui.cmd bin|compile` overrides it.
 set "DL_DIR=%~dp0..\..\.tools\gui"
-set "MODE_FILE=%DL_DIR%\.mode"
+set "SETTINGS=%DL_DIR%\settings.json"
 set "MODE="
 set "MODE_ARG="
 if /i "%~1"=="bin" set "MODE_ARG=bin"
@@ -30,15 +30,15 @@ if /i "%~1"=="compile" set "MODE_ARG=compile"
 if defined MODE_ARG (
     set "MODE=%MODE_ARG%"
     if not exist "%DL_DIR%" mkdir "%DL_DIR%"
-    echo %MODE%> "%MODE_FILE%"
+    powershell -NoProfile -Command ^
+      "$s=if(Test-Path '%SETTINGS%'){(Get-Content '%SETTINGS%'|ConvertFrom-Json)}else{[pscustomobject]@{}};" ^
+      "$s.mode='%MODE%'; $s|ConvertTo-Json|Set-Content '%SETTINGS%'"
     shift
     goto run-mode
 )
 
-if exist "%MODE_FILE%" (
-    set /p MODE=< "%MODE_FILE%"
-    goto run-mode
-)
+for /f "usebackq delims=" %%M in (`powershell -NoProfile -Command "(Get-Content '%SETTINGS%' -ErrorAction SilentlyContinue | ConvertFrom-Json).mode"`) do set "MODE=%%M"
+if defined MODE goto run-mode
 
 where cargo >nul 2>&1
 if errorlevel 1 goto set-bin
@@ -47,8 +47,12 @@ if errorlevel 1 goto set-bin
 echo [kristal-debug-tools] Detected a local compile toolchain (cargo + node).
 choice /c BC /n /t 5 /d B /m "[B] use release binaries (default)  [C] compile and run locally: "
 if not exist "%DL_DIR%" mkdir "%DL_DIR%"
-if errorlevel 2 (echo compile> "%MODE_FILE%") else (echo bin> "%MODE_FILE%")
-echo [kristal-debug-tools] Remembered (delete .tools\gui\.mode or pass bin^|compile to change).
+set "MODE=bin"
+if errorlevel 2 set "MODE=compile"
+powershell -NoProfile -Command ^
+  "$s=if(Test-Path '%SETTINGS%'){(Get-Content '%SETTINGS%'|ConvertFrom-Json)}else{[pscustomobject]@{}};" ^
+  "$s.mode='%MODE%'; $s|ConvertTo-Json|Set-Content '%SETTINGS%'"
+echo [kristal-debug-tools] Remembered (edit .tools\gui\settings.json or pass bin^|compile to change).
 goto run-mode
 
 :set-bin
