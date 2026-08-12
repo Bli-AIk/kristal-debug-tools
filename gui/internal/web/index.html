@@ -12,6 +12,7 @@
   <div class="nav-inner">
     <span class="title">KRISTAL DEBUG TOOLS</span>
     <span class="nav-right">
+      <button id="nav-chapter" class="btn" data-i18n="chapterConfig">CHAPTER CONFIG</button>
       <button id="copy-url" class="btn">COPY URL</button>
       <button id="scale-down" class="btn small" title="zoom out">A&#8722;</button>
       <button id="scale-label" class="btn small" title="reset zoom">100%</button>
@@ -23,7 +24,8 @@
 
 <div id="statusbar" class="statusbar"><span id="flash" class="flash"></span></div>
 
-<main class="layout">
+<main>
+  <div id="view-main" class="layout">
   <section class="col">
     <div class="broken-box panel">
       <h2 data-i18n="launch">LAUNCH GAME</h2>
@@ -67,14 +69,6 @@
       </div>
     </div>
 
-    <div class="broken-box panel" id="chapter-panel" hidden>
-      <div class="panel-head">
-        <h2 data-i18n="chapterConfig">CHAPTER CONFIG</h2>
-        <span id="chapter-current" class="hint"></span>
-      </div>
-      <div id="chapter-config-list" class="chapter-config-list"></div>
-    </div>
-
     <details class="broken-box panel">
       <summary>
         <h2 data-i18n="tasks">RUN LIST (ADVANCED)</h2>
@@ -95,6 +89,18 @@
       <div id="runs-log" class="runs-log"></div>
     </div>
   </section>
+  </div>
+
+  <div id="view-chapter" hidden>
+    <div class="broken-box panel chapter-page">
+      <div class="panel-head">
+        <h2 data-i18n="chapterConfig">CHAPTER CONFIG</h2>
+        <span id="chapter-current" class="hint"></span>
+        <button id="chapter-back" class="btn small">&#8592; <span data-i18n="back">BACK</span></button>
+      </div>
+      <div id="chapter-config-list" class="chapter-config-list wide"></div>
+    </div>
+  </div>
 </main>
 
 <footer class="footer">

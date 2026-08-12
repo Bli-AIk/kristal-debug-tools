@@ -11,7 +11,7 @@ const I18N = {
     initBtn: "初始化项目", initConfirm: "再次点击确认", initDone: "初始化已在终端窗口启动，完成后建议重启 GUI",
     initFail: "初始化失败", chapterSaved: "默认章节已保存", chapterItems: "项配置",
     chapterConfig: "章节配置", chapterCurrent: "当前章节", overrideDefault: "默认",
-    overrideOn: "开", overrideOff: "关", overrideSaved: "已保存", overrideReset: "重置",
+    overrideOn: "开", overrideOff: "关", overrideSaved: "已保存", overrideReset: "重置", back: "返回",
     run: "运行", refresh: "刷新",
     copyUrl: "复制地址", copied: "已复制",
     loading: "加载中…",
@@ -39,7 +39,7 @@ const I18N = {
     initBtn: "INITIALIZE", initConfirm: "CLICK AGAIN TO CONFIRM", initDone: "initialization started in a terminal window — restart the GUI when done",
     initFail: "init failed", chapterSaved: "default chapter saved", chapterItems: "items",
     chapterConfig: "CHAPTER CONFIG", chapterCurrent: "chapter", overrideDefault: "default",
-    overrideOn: "on", overrideOff: "off", overrideSaved: "saved", overrideReset: "reset",
+    overrideOn: "on", overrideOff: "off", overrideSaved: "saved", overrideReset: "reset", back: "BACK",
     run: "RUN", refresh: "REFRESH",
     copyUrl: "COPY URL", copied: "COPIED",
     loading: "loading…",
@@ -187,22 +187,30 @@ function fmtValue(v) {
 }
 
 async function loadChapterConfig() {
-  const panel = document.getElementById("chapter-panel");
   const list = document.getElementById("chapter-config-list");
   let data;
   try {
     data = await api("/api/chapter-config");
   } catch (_) {
-    panel.hidden = true;
     return;
   }
-  panel.hidden = false;
   document.getElementById("chapter-current").textContent =
     t("chapterCurrent") + ": " + data.chapter;
+  const count = data.items.filter((it) => it.override !== null && it.override !== undefined).length;
+  // Nav button carries the override count: the page is our config editor.
+  const nav = document.getElementById("nav-chapter");
+  nav.textContent = t("chapterConfig") + (count > 0 ? ` ✎${count}` : "");
   list.innerHTML = "";
   for (const item of data.items) {
     list.appendChild(chapterConfigRow(item));
   }
+}
+
+/* --- view switching --- */
+
+function showView(name) {
+  document.getElementById("view-main").hidden = name !== "main";
+  document.getElementById("view-chapter").hidden = name !== "chapter";
 }
 
 function chapterConfigRow(item) {
@@ -581,6 +589,8 @@ document.getElementById("refresh-tasks").onclick = loadTasks;
 document.getElementById("launch-btn").onclick = launchGame;
 document.getElementById("init-btn").onclick = initProject;
 document.getElementById("init-chapter").onchange = saveChapter;
+document.getElementById("nav-chapter").onclick = () => { showView("chapter"); loadChapterConfig(); };
+document.getElementById("chapter-back").onclick = () => showView("main");
 
 document.getElementById("lang-toggle").onclick = () => {
   lang = lang === "zh" ? "en" : "zh";
