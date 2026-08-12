@@ -161,6 +161,50 @@ func TestHandleLaunchBuildsArgs(t *testing.T) {
 	}
 }
 
+func TestProjectTasksAndRun(t *testing.T) {
+	root := t.TempDir()
+	mustWrite(t, filepath.Join(root, "justfile"), []byte("build:\n\t@echo build\n"))
+	_, ts, spawn := newTestServer(t, Options{
+		ModRoot: root, JustPath: "/usr/bin/just",
+		Justfile: filepath.Join(t.TempDir(), "lib-justfile"),
+	})
+	// Tasks include the project's recipes as a second group.
+	resp, err := http.Get(ts.URL + "/api/tasks")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out struct {
+		Tasks []struct{ Name string } `json:"tasks"`
+		Mod   *struct {
+			Tasks []struct{ Name string } `json:"tasks"`
+		} `json:"mod"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if out.Mod == nil || len(out.Mod.Tasks) != 1 || out.Mod.Tasks[0].Name != "build" {
+		t.Fatalf("mod group = %+v", out.Mod)
+	}
+	// Running a project task uses the project justfile.
+	resp2, err := http.Post(ts.URL+"/api/runs", "application/json",
+		strings.NewReader(`{"task":"build","justfile":"project"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp2.Body.Close()
+	if resp2.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %s", resp2.Status)
+	}
+	argv, _ := spawn.last()
+	if argv == nil || !strings.HasSuffix(argv[2], "justfile") {
+		t.Fatalf("argv = %v", argv)
+	}
+	if filepath.Base(argv[2]) != "justfile" || filepath.Dir(argv[2]) != root {
+		t.Fatalf("project run used %q, want %q", argv[2], filepath.Join(root, "justfile"))
+	}
+}
+
 func TestTasksWhenJustMissing(t *testing.T) {
 	_, ts, _ := newTestServer(t, Options{JustPath: "", Justfile: filepath.Join(t.TempDir(), "justfile"), ModRoot: t.TempDir()})
 	resp, err := http.Get(ts.URL + "/api/tasks")

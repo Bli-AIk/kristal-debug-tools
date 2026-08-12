@@ -6,6 +6,7 @@ const I18N = {
   zh: {
     tasks: "运行项列表（高级）", launch: "启动游戏", runs: "运行记录",
     project: "项目信息", system: "系统", libraries: "依赖库",
+    projectBuilds: "项目构建",
     run: "运行", refresh: "刷新",
     copyUrl: "复制地址", copied: "已复制",
     loading: "加载中…",
@@ -28,6 +29,7 @@ const I18N = {
   en: {
     tasks: "RUN LIST (ADVANCED)", launch: "LAUNCH GAME", notice: "NOTICE", runs: "RUNS",
     project: "PROJECT", system: "system", libraries: "libraries",
+    projectBuilds: "PROJECT BUILDS",
     run: "RUN", refresh: "REFRESH",
     copyUrl: "COPY URL", copied: "COPIED",
     loading: "loading…",
@@ -194,58 +196,71 @@ function renderTasks(l) {
     list.innerHTML = `<p class="hint err">${t("justUnavailable")}${l.note ? " — " + escapeHtml(l.note) : ""}</p>`;
     return;
   }
-  if (!l.tasks.length) {
+  if (!l.tasks.length && !(l.mod && l.mod.tasks.length)) {
     list.innerHTML = `<p class="hint">${t("noTasks")}</p>`;
     return;
   }
   for (const task of l.tasks) {
-    const row = document.createElement("div");
-    row.className = "task-row";
-
-    const name = document.createElement("span");
-    name.className = "task-name";
-    name.textContent = task.name;
-    if (task.aliases && task.aliases.length) {
-      const al = document.createElement("span");
-      al.className = "alias";
-      al.textContent = " [" + task.aliases.join(", ") + "]";
-      name.appendChild(al);
+    list.appendChild(taskRow("lib", task, ""));
+  }
+  if (l.mod && l.mod.tasks.length) {
+    const head = document.createElement("div");
+    head.className = "task-group";
+    head.textContent = t("projectBuilds");
+    list.appendChild(head);
+    for (const task of l.mod.tasks) {
+      list.appendChild(taskRow("proj", task, "project"));
     }
-    row.appendChild(name);
-
-    const params = document.createElement("div");
-    params.className = "task-params";
-    for (const p of task.params || []) {
-      params.appendChild(renderParam(task, p));
-    }
-    row.appendChild(params);
-
-    if (task.doc) {
-      const doc = document.createElement("span");
-      doc.className = "task-doc";
-      doc.textContent = task.doc;
-      row.appendChild(doc);
-    }
-
-    const btn = document.createElement("button");
-    btn.className = "btn small";
-    btn.textContent = "▶ " + t("run");
-    btn.onclick = () => runTask(task, collectTaskArgs(task));
-    row.appendChild(btn);
-
-    list.appendChild(row);
   }
 }
 
-function renderParam(task, p) {
+function taskRow(group, task, justfile) {
+  const row = document.createElement("div");
+  row.className = "task-row";
+
+  const name = document.createElement("span");
+  name.className = "task-name";
+  name.textContent = task.name;
+  if (task.aliases && task.aliases.length) {
+    const al = document.createElement("span");
+    al.className = "alias";
+    al.textContent = " [" + task.aliases.join(", ") + "]";
+    name.appendChild(al);
+  }
+  row.appendChild(name);
+
+  const params = document.createElement("div");
+  params.className = "task-params";
+  for (const p of task.params || []) {
+    params.appendChild(renderParam(group, task, p));
+  }
+  row.appendChild(params);
+
+  if (task.doc) {
+    const doc = document.createElement("span");
+    doc.className = "task-doc";
+    doc.textContent = task.doc;
+    row.appendChild(doc);
+  }
+
+  const btn = document.createElement("button");
+  btn.className = "btn small";
+  btn.textContent = "▶ " + t("run");
+  btn.onclick = () => runTask(task, collectTaskArgs(group, task), justfile);
+  row.appendChild(btn);
+  return row;
+}
+
+function renderParam(group, task, p) {
   const wrap = document.createElement("label");
+  const id = `${group}-${task.name}-${p.name}`;
   if (p.kind === "flag") {
     const cb = document.createElement("input");
     cb.type = "checkbox";
-    cb.id = `p-${task.name}-${p.name}`;
+    cb.id = `p-${id}`;
     const val = document.createElement("input");
     val.type = "text";
-    val.id = `pv-${task.name}-${p.name}`;
+    val.id = `pv-${id}`;
     val.placeholder = "--" + p.name + "=value";
     val.className = "flag-input";
     cb.onchange = () => val.classList.toggle("on", cb.checked);
@@ -256,20 +271,21 @@ function renderParam(task, p) {
   }
   const input = document.createElement("input");
   input.type = "text";
-  input.id = `p-${task.name}-${p.name}`;
+  input.id = `p-${id}`;
   input.placeholder = p.kind === "many" ? "a, b, c" : p.kind === "star" ? "arg1 arg2" : "";
   wrap.appendChild(document.createTextNode(p.kind === "many" ? "[" + p.name + "]" : p.name + ":"));
   wrap.appendChild(input);
   return wrap;
 }
 
-function collectTaskArgs(task) {
+function collectTaskArgs(group, task) {
   const args = [];
   for (const p of task.params || []) {
-    const ctrl = document.getElementById(`p-${task.name}-${p.name}`);
+    const id = `${group}-${task.name}-${p.name}`;
+    const ctrl = document.getElementById(`p-${id}`);
     if (!ctrl) continue;
     if (p.kind === "flag") {
-      const val = document.getElementById(`pv-${task.name}-${p.name}`);
+      const val = document.getElementById(`pv-${id}`);
       if (ctrl.checked) {
         args.push(val && val.value ? `--${p.name}=${val.value}` : `--${p.name}`);
       }
@@ -284,9 +300,9 @@ function collectTaskArgs(task) {
   return args;
 }
 
-async function runTask(task, args) {
+async function runTask(task, args, justfile) {
   try {
-    await postJSON("/api/runs", { task: task.name, args });
+    await postJSON("/api/runs", { task: task.name, args, justfile });
     showFlash(t("taskStarted"));
     loadRuns();
   } catch (err) {

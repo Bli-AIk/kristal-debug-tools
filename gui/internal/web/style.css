@@ -271,6 +271,15 @@ input:focus, select:focus { outline: none; border-color: var(--yellow); }
 
 .task-list { display: flex; flex-direction: column; gap: 2px; }
 
+.task-group {
+  font-family: var(--font-bold);
+  color: var(--cyan);
+  font-size: 0.9rem;
+  padding: 10px 6px 2px;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.3);
+  margin-top: 6px;
+}
+
 .task-row {
   display: flex;
   flex-wrap: wrap;

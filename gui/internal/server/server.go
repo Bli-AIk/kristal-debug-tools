@@ -241,12 +241,28 @@ func stripJSONComments(data []byte) []byte {
 
 func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 	l := tasklist.Load(s.opts.JustPath, s.opts.Justfile, s.opts.ModRoot)
-	writeJSON(w, http.StatusOK, l)
+	// The project's own build recipes (mod root justfile) as a second group.
+	var mod *tasklist.List
+	if jf := filepath.Join(s.opts.ModRoot, "justfile"); fileExists(jf) {
+		if m := tasklist.Load(s.opts.JustPath, jf, s.opts.ModRoot); m.Source != "builtin" {
+			mod = m
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"source": l.Source,
+		"note":   l.Note,
+		"tasks":  l.Tasks,
+		"mod":    mod,
+	})
 }
 
 type runRequest struct {
 	Task string   `json:"task"`
 	Args []string `json:"args"`
+	// Justfile selects which justfile the task runs against: "" or
+	// "library" (default) uses the debug-tools justfile; "project" uses the
+	// mod root justfile (build/package recipes).
+	Justfile string `json:"justfile"`
 }
 
 func (s *Server) handleRun(w http.ResponseWriter, r *http.Request) {
@@ -263,7 +279,15 @@ func (s *Server) handleRun(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "just is unavailable (see /api/status)")
 		return
 	}
-	argv := []string{s.opts.JustPath, "--justfile", s.opts.Justfile, req.Task}
+	justfile := s.opts.Justfile
+	if req.Justfile == "project" {
+		justfile = filepath.Join(s.opts.ModRoot, "justfile")
+		if !fileExists(justfile) {
+			writeError(w, http.StatusBadRequest, "project justfile not found")
+			return
+		}
+	}
+	argv := []string{s.opts.JustPath, "--justfile", justfile, req.Task}
 	argv = append(argv, req.Args...)
 	cmdStr := strings.Join(quoteAll(argv), " ")
 	if err := s.opts.Spawn(req.Task, argv, s.opts.ModRoot, true); err != nil {
