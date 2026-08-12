@@ -91,6 +91,7 @@ type libraryInfo struct {
 
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	name, subtitle, libs := projectInfo(s.opts.ModRoot)
+	engineVersion, engineHash := engineInfo(s.opts.EngineRoot)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"modRoot":    s.opts.ModRoot,
 		"modID":      s.opts.ModID,
@@ -105,6 +106,10 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 			"found": s.opts.LovePath != "",
 			"path":  s.opts.LovePath,
 		},
+		"engine": map[string]any{
+			"version": engineVersion,
+			"hash":    engineHash,
+		},
 		"os":   runtime.GOOS,
 		"arch": runtime.GOARCH,
 		"project": map[string]any{
@@ -114,6 +119,34 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		},
 		"libraries": libs,
 	})
+}
+
+// engineInfo reads the engine's version (VERSION file at the repo root) and
+// its git commit hash (best effort: .git/HEAD + loose refs). Both are empty
+// strings when unavailable, e.g. a release ZIP without VERSION.
+func engineInfo(engineRoot string) (version, hash string) {
+	if engineRoot == "" {
+		return "", ""
+	}
+	if data, err := os.ReadFile(filepath.Join(engineRoot, "VERSION")); err == nil {
+		version = strings.TrimSpace(string(data))
+	}
+	head, err := os.ReadFile(filepath.Join(engineRoot, ".git", "HEAD"))
+	if err != nil {
+		return version, ""
+	}
+	s := strings.TrimSpace(string(head))
+	if strings.HasPrefix(s, "ref: ") {
+		if data, err := os.ReadFile(filepath.Join(engineRoot, ".git", strings.TrimPrefix(s, "ref: "))); err == nil {
+			s = strings.TrimSpace(string(data))
+		} else {
+			return version, ""
+		}
+	}
+	if len(s) >= 7 {
+		hash = s[:7]
+	}
+	return version, hash
 }
 
 // projectInfo reads the mod's identity (mod.json) and its dependency

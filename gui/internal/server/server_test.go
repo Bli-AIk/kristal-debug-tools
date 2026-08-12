@@ -179,6 +179,27 @@ func TestTasksWhenJustMissing(t *testing.T) {
 	}
 }
 
+func TestEngineInfo(t *testing.T) {
+	engine := t.TempDir()
+	mustWrite(t, filepath.Join(engine, "VERSION"), []byte("v0.10.0\n"))
+	mustWrite(t, filepath.Join(engine, ".git", "HEAD"), []byte("ref: refs/heads/main\n"))
+	mustWrite(t, filepath.Join(engine, ".git", "refs", "heads", "main"), []byte("752bc0688ba97ca8a256ba9125b7e05a1ca6edbd\n"))
+	version, hash := engineInfo(engine)
+	if version != "v0.10.0" || hash != "752bc06" {
+		t.Fatalf("got %q %q, want v0.10.0 752bc06", version, hash)
+	}
+	// Missing git metadata: version only.
+	plain := t.TempDir()
+	mustWrite(t, filepath.Join(plain, "VERSION"), []byte("v1.2.3"))
+	if version, hash = engineInfo(plain); version != "v1.2.3" || hash != "" {
+		t.Fatalf("got %q %q", version, hash)
+	}
+	// Empty root.
+	if version, hash = engineInfo(""); version != "" || hash != "" {
+		t.Fatalf("got %q %q", version, hash)
+	}
+}
+
 func TestProjectInfoJSONC(t *testing.T) {
 	root := t.TempDir()
 	mustWrite(t, filepath.Join(root, "mod.json"), []byte(`{

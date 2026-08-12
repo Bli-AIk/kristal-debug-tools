@@ -130,7 +130,7 @@ async function loadStatus() {
     ? `<span>${t("love")}: ${escapeHtml(s.love.path)}</span>`
     : `<span class="bad">${t("loveMissing")}</span>`;
   const engine = s.engineRoot
-    ? `<span>${t("engine")}: ${escapeHtml(s.engineRoot)}</span>`
+    ? `<span>${t("engine")}: ${escapeHtml(s.engineRoot)}${s.engine && s.engine.version ? ` (${escapeHtml(s.engine.version)}${s.engine.hash ? " @ " + escapeHtml(s.engine.hash) : ""})` : ""}</span>`
     : `<span class="bad">${t("noEngine")}</span>`;
   const mod = s.modRoot
     ? `<span>${t("mod")}: ${escapeHtml(s.modRoot)}</span>`
