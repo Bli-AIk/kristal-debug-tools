@@ -37,8 +37,9 @@ func TestParseArgs(t *testing.T) {
 		{"double dash", []string{"--", "--custom", "value"}, []string{"--custom", "value"}},
 		{"attached tp", []string{"-tp25"}, []string{"--tp", "25"}},
 		{"attached encounter wave", []string{"-eDummy", "-w2", "-wf2", "-m50"},
-			[]string{"--encounter", "Dummy", "--wave", "2", "--wave", "f2", "--mercy", "50"}},
-		{"long wave-force works", []string{"--wave-force", "2"}, []string{"--wave-force", "2"}},
+			[]string{"--encounter", "Dummy", "--wave", "2", "--wave-force", "2", "--mercy", "50"}},
+		{"short wave-force", []string{"-wf", "2"}, []string{"--wave-force", "2"}},
+		{"long wave-force", []string{"--wave-force", "2"}, []string{"--wave-force", "2"}},
 		{"bare encounter", []string{"--encounter"}, []string{"--encounter"}},
 		{"empty encounter value", []string{"--encounter="}, []string{"--encounter"}},
 		{"encounter eats nothing flag", []string{"--encounter", "--wave", "2"},
@@ -94,6 +95,13 @@ func TestParseArgsErrors(t *testing.T) {
 		var mv *MissingValueError
 		if !errors.As(err, &mv) || mv.Flag != "--mercy" {
 			t.Fatalf("got %v, want MissingValueError(--mercy)", err)
+		}
+	})
+	t.Run("short wave-force needs value", func(t *testing.T) {
+		_, err := ParseArgs([]string{"-wf"})
+		var mv *MissingValueError
+		if !errors.As(err, &mv) || mv.Flag != "-wf" {
+			t.Fatalf("got %v, want MissingValueError(-wf)", err)
 		}
 	})
 	t.Run("help", func(t *testing.T) {

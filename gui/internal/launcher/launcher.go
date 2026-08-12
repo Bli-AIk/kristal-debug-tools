@@ -99,27 +99,13 @@ func ParseArgs(argv []string) ([]string, error) {
 				return nil, &MissingValueError{Flag: "-l"}
 			}
 			out = append(out, "--lang", v)
-		// Note: -wf / -wfX never reach the -wf cases below — the -w prefix
-		// case matches them first, exactly like the bash script where `-w?*`
-		// shadows the unreachable `-wf?*` branch (verified empirically). The
-		// long form --wave-force works. Mirrored deliberately: the port must
-		// stay byte-identical to bin/kristal-run.
+		// Order matters: the -wf cases must precede the -w prefix case, or
+		// -wf / -wfX would be eaten as `--wave f*` (the bash script had this
+		// shadowing bug; both sides were fixed together).
 		case strings.HasPrefix(a, "--wave="):
 			v := strings.TrimPrefix(a, "--wave=")
 			if v == "" {
 				return nil, &MissingValueError{Flag: "--wave"}
-			}
-			out = append(out, "--wave", v)
-		case a == "--wave" || a == "-w":
-			if i+1 >= len(argv) {
-				return nil, &MissingValueError{Flag: a}
-			}
-			out = append(out, "--wave", argv[i+1])
-			i++
-		case strings.HasPrefix(a, "-w") && len(a) > 2:
-			v := a[2:]
-			if v == "" {
-				return nil, &MissingValueError{Flag: "-w"}
 			}
 			out = append(out, "--wave", v)
 		case strings.HasPrefix(a, "--wave-force="):
@@ -140,6 +126,18 @@ func ParseArgs(argv []string) ([]string, error) {
 				return nil, &MissingValueError{Flag: "-wf"}
 			}
 			out = append(out, "--wave-force", v)
+		case a == "--wave" || a == "-w":
+			if i+1 >= len(argv) {
+				return nil, &MissingValueError{Flag: a}
+			}
+			out = append(out, "--wave", argv[i+1])
+			i++
+		case strings.HasPrefix(a, "-w") && len(a) > 2:
+			v := a[2:]
+			if v == "" {
+				return nil, &MissingValueError{Flag: "-w"}
+			}
+			out = append(out, "--wave", v)
 		case strings.HasPrefix(a, "--initial-tp=") || strings.HasPrefix(a, "--tp="):
 			v := a[strings.IndexByte(a, '=')+1:]
 			if v == "" {
