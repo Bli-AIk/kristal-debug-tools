@@ -36,6 +36,8 @@ command.
 
 ## Options
 
+- `--lang`, `--language`, `-l`: select the startup language, such as `en` or
+  `zh-hans`. The value is passed to the project localization library.
 - `--encounter`, `-e`: start directly in an encounter.
 - `--wave`, `-w`: select a wave for the first defending phase. Values can be a
   one-based position in an enemy's `waves` list or a wave ID.

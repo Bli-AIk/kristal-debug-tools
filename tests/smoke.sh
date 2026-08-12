@@ -25,11 +25,25 @@ printf '%s\n' "$output" | grep -F -- '--encounter dummy' >/dev/null
 printf '%s\n' "$output" | grep -F -- '--tp 25' >/dev/null
 printf '%s\n' "$output" | grep -F -- '--mercy 75' >/dev/null
 
+output=$(dry_run --lang zh-hans)
+printf '%s\n' "$output" | grep -F -- '--lang zh-hans' >/dev/null
+
+output=$(dry_run --language=en)
+printf '%s\n' "$output" | grep -F -- '--lang en' >/dev/null
+
+output=$(dry_run -l zh-hans)
+printf '%s\n' "$output" | grep -F -- '--lang zh-hans' >/dev/null
+
 output=$(dry_run -- --custom value)
 printf '%s\n' "$output" | grep -F -- '--custom value' >/dev/null
 
 if dry_run --tp >/dev/null 2>&1; then
     printf '%s\n' 'missing-value validation failed' >&2
+    exit 1
+fi
+
+if dry_run --language >/dev/null 2>&1; then
+    printf '%s\n' 'language missing-value validation failed' >&2
     exit 1
 fi
 

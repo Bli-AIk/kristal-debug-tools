@@ -3,9 +3,11 @@ set -euo pipefail
 
 usage() {
     printf '%s\n' \
-        'usage: kristal-run [--encounter [id]|-e [id]] [--wave selector|-w selector] [--wave-force selector|-wf selector]' \
+        'usage: kristal-run [--lang language|--language language|-l language] [--encounter [id]|-e [id]] [--wave selector|-w selector] [--wave-force selector|-wf selector]' \
         '                   [--tp n|--initial-tp n|-tp n] [--mercy n|--initial-mercy n|-m n]' \
         '' \
+        '  --lang, --language, -l' \
+        '                         Select the startup language (for example, en or zh-hans).' \
         '  --encounter, -e       Start directly in an encounter.' \
         '  --wave, -w            Select a wave for the first defending phase.' \
         '  --wave-force, -wf     Select the same wave for every defending phase.' \
@@ -92,6 +94,19 @@ while [ "$#" -gt 0 ]; do
             ;;
         -e?*)
             kristal_args+=(--encounter "${1#-e}")
+            shift
+            ;;
+        --lang=*|--language=*)
+            kristal_args+=(--lang "$(require_value --lang "${1#*=}")")
+            shift
+            ;;
+        --lang|--language|-l)
+            [ "$#" -gt 1 ] || { printf '%s\n' "$1 requires a value." >&2; exit 64; }
+            kristal_args+=(--lang "$2")
+            shift 2
+            ;;
+        -l?*)
+            kristal_args+=(--lang "$(require_value -l "${1#-l}")")
             shift
             ;;
         --wave=*)
