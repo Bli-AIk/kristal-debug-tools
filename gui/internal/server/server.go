@@ -241,11 +241,26 @@ func stripJSONComments(data []byte) []byte {
 
 func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 	l := tasklist.Load(s.opts.JustPath, s.opts.Justfile, s.opts.ModRoot)
-	// The project's own build recipes (mod root justfile) as a second group.
+	// The project's own build recipes (mod root justfile) as a second
+	// group, minus recipes already listed from the library justfile (the
+	// mod root's run/test/gui delegate to it and would just duplicate).
 	var mod *tasklist.List
 	if jf := filepath.Join(s.opts.ModRoot, "justfile"); fileExists(jf) {
 		if m := tasklist.Load(s.opts.JustPath, jf, s.opts.ModRoot); m.Source != "builtin" {
-			mod = m
+			seen := map[string]bool{}
+			for _, t := range l.Tasks {
+				seen[t.Name] = true
+			}
+			kept := m.Tasks[:0]
+			for _, t := range m.Tasks {
+				if !seen[t.Name] {
+					kept = append(kept, t)
+				}
+			}
+			m.Tasks = kept
+			if len(m.Tasks) > 0 {
+				mod = m
+			}
 		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
