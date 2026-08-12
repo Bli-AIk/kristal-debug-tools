@@ -4,20 +4,38 @@
   "packages": {
     ".": {
       "release-type": "simple",
-      "initial-version": "0.1.0",
+      "initial-version": "0.0.0",
       "changelog-sections": [
-        {"type": "feat", "section": "Features"},
-        {"type": "fix", "section": "Bug Fixes"},
-        {"type": "perf", "section": "Performance Improvements"},
-        {"type": "refactor", "section": "Code Refactoring"},
-        {"type": "revert", "section": "Reverts"}
+        {
+          "type": "feat",
+          "section": "Features"
+        },
+        {
+          "type": "fix",
+          "section": "Bug Fixes"
+        },
+        {
+          "type": "perf",
+          "section": "Performance Improvements"
+        },
+        {
+          "type": "refactor",
+          "section": "Code Refactoring"
+        },
+        {
+          "type": "revert",
+          "section": "Reverts"
+        }
       ],
       "changelog-path": "CHANGELOG.md",
       "include-v-in-tag": true,
       "include-v-in-release-name": true,
       "include-component-in-tag": false,
       "extra-files": [
-        {"type": "generic", "path": "lib.json"}
+        {
+          "type": "generic",
+          "path": "lib.json"
+        }
       ]
     }
   }
