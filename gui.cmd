@@ -10,8 +10,23 @@ rem     longer a required submodule.
 setlocal EnableExtensions
 set "DL_DIR=%~dp0..\..\.tools\gui"
 set "GUI_DIR=%DL_DIR%\gui-src"
-set "DL_EXE=%DL_DIR%\kristal-debug-tools-gui-windows-x64.exe"
-set "DL_SIDE=%DL_DIR%\kristal-run-windows-x64.exe"
+
+rem Detect host architecture (AMD64 or ARM64). cmd may run under x64
+rem emulation on ARM64 Windows, so check PROCESSOR_ARCHITEW6432 and, as a
+rem fallback, PowerShell's OSArchitecture (reports the OS arch, not the
+rem emulated process arch).
+set "ARCH=x64"
+if /i "%PROCESSOR_ARCHITEW6432%"=="ARM64" set "ARCH=arm64"
+if /i "%PROCESSOR_ARCHITECTURE%"=="ARM64" set "ARCH=arm64"
+if /i "%ARCH%"=="x64" (
+    for /f "usebackq delims=" %%A in (`powershell -NoProfile -Command "[System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture"`) do (
+        if /i "%%A"=="Arm64" set "ARCH=arm64"
+    )
+)
+
+set "DL_EXE=%DL_DIR%\kristal-debug-tools-gui-windows-%ARCH%.exe"
+set "DL_SIDE=%DL_DIR%\kristal-run-windows-%ARCH%.exe"
+set "DL_SUMS=%DL_DIR%\checksums-windows-%ARCH%.txt"
 
 if /i "%~1"=="compile" (
     set "MODE=compile"
@@ -57,7 +72,7 @@ if "%DEV_ERR%"=="0" exit /b 0
 echo [kristal-debug-tools] Local compile failed (%DEV_ERR%), falling back to release binaries.
 
 :download
-if exist "%DL_EXE%" if exist "%DL_SIDE%" if exist "%DL_DIR%\checksums.txt" goto check-version
+if exist "%DL_EXE%" if exist "%DL_SIDE%" if exist "%DL_SUMS%" goto check-version
 goto need-download
 
 :check-version
@@ -84,10 +99,10 @@ powershell -NoProfile -Command ^
   "$ProgressPreference='SilentlyContinue';" ^
   "$base='https://github.com/Bli-AIk/kristal-debug-tools-gui/releases/latest/download/';" ^
   "$dir='%DL_DIR%';" ^
-  "$files=@('kristal-debug-tools-gui-windows-x64.exe','kristal-run-windows-x64.exe','checksums.txt');" ^
+  "$files=@('kristal-debug-tools-gui-windows-%ARCH%.exe','kristal-run-windows-%ARCH%.exe','checksums-windows-%ARCH%.txt');" ^
   "foreach($f in $files){ Invoke-WebRequest -Uri ($base+$f) -OutFile (Join-Path $dir $f) };" ^
-  "$sums=Get-Content (Join-Path $dir 'checksums.txt');" ^
-  "foreach($f in $files){ if($f -eq 'checksums.txt'){continue};" ^
+  "$sums=Get-Content (Join-Path $dir 'checksums-windows-%ARCH%.txt');" ^
+  "foreach($f in $files){ if($f -eq 'checksums-windows-%ARCH%.txt'){continue};" ^
   "  $h=(Get-FileHash (Join-Path $dir $f) -Algorithm SHA256).Hash.ToLower();" ^
   "  if(-not ($sums -match $h)){ Write-Error ('checksum mismatch: '+$f); exit 1 } }"
 if errorlevel 1 (

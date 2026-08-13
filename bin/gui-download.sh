@@ -60,9 +60,20 @@ fi
 
 cd "$DL_DIR"
 
-GUI_BIN="kristal-debug-tools-gui-linux-x64"
-GUI_SIDE="kristal-run-linux-x64"
-CHECKSUMS="checksums.txt"
+# Detect host architecture for the matching release assets.
+# macOS keeps the x64 name (no macOS assets are produced); only Linux
+# switches to arm64 on aarch64 hosts.
+ARCH="x64"
+case "$(uname -s)" in
+    Linux)
+        case "$(uname -m)" in
+            aarch64|arm64) ARCH="arm64" ;;
+        esac
+        ;;
+esac
+GUI_BIN="kristal-debug-tools-gui-linux-${ARCH}"
+GUI_SIDE="kristal-run-linux-${ARCH}"
+CHECKSUMS="checksums-linux-${ARCH}.txt"
 LATEST="$(latest_version 2>/dev/null || true)"
 
 need_download=false
