@@ -200,11 +200,23 @@ if [ -z "$engine_root" ]; then
     exit 1
 fi
 
+# On Windows the standard love.exe is a GUI-subsystem binary that never gets a
+# console, so the terminal-cli debug console (stdin/stdout) cannot attach.
+# Prefer the console build (lovec) there; fall back to love everywhere else.
+love_bin=love
+case "$(uname -s)" in
+    *MINGW*|*MSYS*|*CYGWIN*)
+        if command -v lovec >/dev/null 2>&1; then
+            love_bin=lovec
+        fi
+        ;;
+esac
+
 if [ "${KRISTAL_DEBUG_TOOLS_DRY_RUN:-0}" = "1" ]; then
     printf 'mod_root=%s\n' "$mod_root"
     printf 'mod_id=%s\n' "$mod_id"
     printf 'engine_root=%s\n' "$engine_root"
-    printf 'love'
+    printf '%s' "$love_bin"
     printf ' %q' "$engine_root" --mod "$mod_id" --auto-mod-start "${kristal_args[@]}"
     printf '\n'
     exit 0
@@ -216,4 +228,4 @@ if [ ! -f "$engine_root/main.lua" ]; then
 fi
 
 cd "$engine_root"
-exec love "$engine_root" --mod "$mod_id" --auto-mod-start "${kristal_args[@]}"
+exec "$love_bin" "$engine_root" --mod "$mod_id" --auto-mod-start "${kristal_args[@]}"
