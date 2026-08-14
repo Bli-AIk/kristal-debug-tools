@@ -3,12 +3,28 @@ rem gui.cmd - start the kristal-debug-tools GUI without installing anything.
 rem   - `gui` always runs release binaries; compile is only used by
 rem     `gui-dev` / `gui-dev-release`.
 rem   - Otherwise checks the latest GitHub release and downloads/updates the
-rem     release binaries into .tools\gui\ (SHA256-verified). `just` is
-rem     compiled into the kristal-run sidecar.
+rem     release binaries into the shared .tools\gui\ next to the Kristal engine
+rem     (SHA256-verified). `just` is compiled into the kristal-run sidecar.
 rem   - Compile mode clones the GUI source repo on demand; the GUI is no
 rem     longer a required submodule.
 setlocal EnableExtensions
-set "DL_DIR=%~dp0..\..\.tools\gui"
+
+rem Resolve the real mod root (%~dp0..\.. may still contain ".." components).
+set "MOD_ROOT="
+for /f "usebackq delims=" %%M in (`powershell -NoProfile -Command "(Resolve-Path '%~dp0..\..').Path"`) do set "MOD_ROOT=%%M"
+if not defined MOD_ROOT set "MOD_ROOT=%~dp0..\.."
+
+rem Shared tools dir, hosted next to the Kristal engine so the GUI cache is
+rem shared across mods and the mod tree stays clean. Resolution mirrors the
+rem build scripts: explicit KRISTAL_ROOT / THRASH_MACHINE_KRISTAL_DIR (skipping
+rem the mod-root .build\Kristal clone) → nearest engine by walking up from the
+rem mod root (main.lua + src\kristal.lua) → fall back to the mod root.
+if defined KRISTAL_ROOT if not exist "%KRISTAL_ROOT%\main.lua" set "KRISTAL_ROOT="
+if defined KRISTAL_ROOT if /i "%KRISTAL_ROOT%"=="%MOD_ROOT%\.build\Kristal" set "KRISTAL_ROOT="
+if defined THRASH_MACHINE_KRISTAL_DIR if exist "%THRASH_MACHINE_KRISTAL_DIR%\main.lua" if /i not "%THRASH_MACHINE_KRISTAL_DIR%"=="%MOD_ROOT%\.build\Kristal" set "KRISTAL_ROOT=%THRASH_MACHINE_KRISTAL_DIR%"
+if not defined KRISTAL_ROOT call :find_kristal "%MOD_ROOT%"
+if not defined KRISTAL_ROOT set "KRISTAL_ROOT=%MOD_ROOT%"
+set "DL_DIR=%KRISTAL_ROOT%\.tools\gui"
 set "GUI_DIR=%DL_DIR%\gui-src"
 
 rem Detect host architecture (AMD64 or ARM64). cmd may run under x64
@@ -115,3 +131,16 @@ if defined LATEST (
 
 "%DL_EXE%" %*
 exit /b %ERRORLEVEL%
+
+rem Walk up from a directory for the nearest Kristal engine (main.lua +
+rem src\kristal.lua). Recursive; sets KRISTAL_ROOT, otherwise leaves it unset.
+:find_kristal
+set "CAND=%~1"
+if exist "%CAND%\main.lua" if exist "%CAND%\src\kristal.lua" (
+    set "KRISTAL_ROOT=%CAND%"
+    exit /b
+)
+for %%I in ("%CAND%") do set "PARENT=%%~dpI"
+if /i "%PARENT%"=="%CAND%" exit /b
+call :find_kristal "%PARENT%"
+exit /b

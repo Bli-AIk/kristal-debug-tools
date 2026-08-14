@@ -19,8 +19,9 @@ gui *args:
     @{{ if os() == "windows" { "\"" + justfile_directory() + "/gui.cmd\"" } else { "sh \"" + justfile_directory() + "/bin/gui-download.sh\" \"" + invocation_directory() + "\"" } }} {{ args }}
 
 # Developer mode: run the Tauri GUI from source (needs Rust + Node).
-# The GUI repo is cloned on demand into .tools/gui-src — not a submodule.
-# zh_hans: 开发者模式：源码运行 GUI（需要 Rust + Node）。源码会按需 clone 到 .tools/gui-src。
+# The GUI repo is cloned on demand into the shared .tools/gui-src next to the
+# Kristal engine — not a submodule.
+# zh_hans: 开发者模式：源码运行 GUI（需要 Rust + Node）。源码会按需 clone 到共享 .tools/gui-src（Kristal 引擎旁）。
 gui-dev:
     @{{ if os() == "windows" { "\"" + justfile_directory() + "/gui.cmd\"" } else { "sh \"" + justfile_directory() + "/bin/gui-download.sh\" \"" + invocation_directory() + "\"" } }} compile
 
