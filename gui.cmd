@@ -27,6 +27,14 @@ if not defined KRISTAL_ROOT set "KRISTAL_ROOT=%MOD_ROOT%"
 set "DL_DIR=%KRISTAL_ROOT%\.tools\gui"
 set "GUI_DIR=%DL_DIR%\gui-src"
 
+rem Export the resolved roots to the GUI app in both modes. The GUI and the
+rem kristal-run sidecar resolve the mod by walking up from cwd or reading
+rem KDT_MOD_ROOT; compile mode runs from the shared .tools\gui\gui-src next
+rem to the engine, so walking up can never reach the mod. Passing the roots
+rem explicitly keeps gui-dev working from the new shared location.
+set "KDT_MOD_ROOT=%MOD_ROOT%"
+set "KRISTAL_ROOT=%KRISTAL_ROOT%"
+
 rem Detect host architecture (AMD64 or ARM64). cmd may run under x64
 rem emulation on ARM64 Windows, so check PROCESSOR_ARCHITEW6432 and, as a
 rem fallback, PowerShell's OSArchitecture (reports the OS arch, not the
@@ -134,13 +142,16 @@ exit /b %ERRORLEVEL%
 
 rem Walk up from a directory for the nearest Kristal engine (main.lua +
 rem src\kristal.lua). Recursive; sets KRISTAL_ROOT, otherwise leaves it unset.
+rem Parent is computed as "CAND\.." + %~fI, not %~dpI: on a directory with a
+rem trailing backslash (what %~dpI produces), %~dpI returns the directory
+rem itself, so the walk stops one level short of the engine.
 :find_kristal
 set "CAND=%~1"
 if exist "%CAND%\main.lua" if exist "%CAND%\src\kristal.lua" (
     set "KRISTAL_ROOT=%CAND%"
     exit /b
 )
-for %%I in ("%CAND%") do set "PARENT=%%~dpI"
+for %%I in ("%CAND%\..") do set "PARENT=%%~fI"
 if /i "%PARENT%"=="%CAND%" exit /b
 call :find_kristal "%PARENT%"
 exit /b
