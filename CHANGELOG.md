@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.2.0](https://github.com/Bli-AIk/kristal-debug-tools/compare/v0.1.0...v0.2.0) (2026-08-14)
+
+
+### Features
+
+* **gui:** 图形界面一键启动 ([#3](https://github.com/Bli-AIk/kristal-debug-tools/issues/3)) ([af1ccb5](https://github.com/Bli-AIk/kristal-debug-tools/commit/af1ccb5f386bdda408ca6fee245ac39d793a3ffc))
+
+
+### Bug Fixes
+
+* **gui:** escape parens in gui.cmd compile echo ([6255642](https://github.com/Bli-AIk/kristal-debug-tools/commit/6255642c34e3ef81c2529e1131c7b2ce85370a20))
+* **gui:** export roots to the app and fix the engine walk-up ([0fd6267](https://github.com/Bli-AIk/kristal-debug-tools/commit/0fd626732fb5797a157d7c37c0069107b099b1af))
+* use lovec on Windows so the debug console can attach ([d6331a1](https://github.com/Bli-AIk/kristal-debug-tools/commit/d6331a1256e78de64fc5ebd0547aee0aa43424c5))
+
+
+### Code Refactoring
+
+* **gui:** download into shared .tools next to the Kristal engine ([667dbc5](https://github.com/Bli-AIk/kristal-debug-tools/commit/667dbc5eb68b8022e2ac4e59fc7c9d12f59cd737))
+
 ## 0.1.0 (2026-08-12)
 
 
