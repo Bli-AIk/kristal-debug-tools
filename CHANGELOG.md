@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/Bli-AIk/kristal-debug-tools/compare/v0.1.1...v0.1.2) (2026-08-15)
+
+
+### chore
+
+* drop bump-patch-for-minor-pre-major config ([fb6b7c8](https://github.com/Bli-AIk/kristal-debug-tools/commit/fb6b7c894cfc416e132741a291b506ca7ddaa7b3))
+
 ## [0.1.1](https://github.com/Bli-AIk/kristal-debug-tools/compare/v0.1.0...v0.1.1) (2026-08-14)
 
 
