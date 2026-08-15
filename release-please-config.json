@@ -38,5 +38,6 @@
         }
       ]
     }
-  }
+  },
+  "bump-patch-for-minor-pre-major": true
 }
