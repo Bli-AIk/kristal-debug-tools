@@ -31,9 +31,16 @@ rem Export the resolved roots to the GUI app in both modes. The GUI and the
 rem kristal-run sidecar resolve the mod by walking up from cwd or reading
 rem KDT_MOD_ROOT; compile mode runs from the shared .tools\gui\gui-src next
 rem to the engine, so walking up can never reach the mod. Passing the roots
-rem explicitly keeps gui-dev working from the new shared location.
+rem explicitly keeps gui-dev working from the new shared location. The
+rem KRISTAL_ROOT fallback above is only for the cache dir (DL_DIR); export
+rem it to the app only when a real engine (main.lua) was resolved, otherwise
+rem clear it so the GUI reports "engine not found" accurately.
 set "KDT_MOD_ROOT=%MOD_ROOT%"
-set "KRISTAL_ROOT=%KRISTAL_ROOT%"
+if exist "%KRISTAL_ROOT%\main.lua" (
+    set "KRISTAL_ROOT=%KRISTAL_ROOT%"
+) else (
+    set "KRISTAL_ROOT="
+)
 
 rem Detect host architecture (AMD64 or ARM64). cmd may run under x64
 rem emulation on ARM64 Windows, so check PROCESSOR_ARCHITEW6432 and, as a

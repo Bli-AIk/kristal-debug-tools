@@ -56,7 +56,8 @@ if dry_run --unknown >/dev/null 2>&1; then
 fi
 
 precedence_root=$(mktemp -d)
-trap 'rm -rf "$precedence_root"' EXIT
+gui_root=$(mktemp -d)
+trap 'rm -rf "$precedence_root" "$gui_root"' EXIT
 mkdir -p "$precedence_root/engine/src" "$precedence_root/engine/mod"
 : > "$precedence_root/engine/main.lua"
 : > "$precedence_root/engine/src/kristal.lua"
@@ -68,5 +69,47 @@ output=$(
     "$runner"
 )
 printf '%s\n' "$output" | grep -Fqx "engine_root=$precedence_root/engine"
+
+# gui-download.sh: resolved roots must be exported to the GUI app
+# (KDT_MOD_ROOT always; KRISTAL_ROOT only when a real engine is found).
+# KRISTAL_DEBUG_TOOLS_GUI_PRINT_ENV=1 prints the roots and exits before
+# any download/launch.
+make_engine() {
+    mkdir -p "$1/src"
+    : > "$1/main.lua"
+    : > "$1/src/kristal.lua"
+}
+
+# 1. explicit KRISTAL_ROOT wins (mod outside the engine tree).
+make_engine "$gui_root/engine"
+printf '%s\n' '{}' > "$gui_root/mod.json"
+output=$(KRISTAL_DEBUG_TOOLS_GUI_PRINT_ENV=1 KRISTAL_ROOT="$gui_root/engine" THRASH_MACHINE_KRISTAL_DIR= "$root/bin/gui-download.sh" "$gui_root")
+printf '%s\n' "$output" | grep -Fqx "KDT_MOD_ROOT=$gui_root"
+printf '%s\n' "$output" | grep -Fqx "KRISTAL_ROOT=$gui_root/engine"
+
+# 2. THRASH_MACHINE_KRISTAL_DIR is used when KRISTAL_ROOT is unset.
+output=$(KRISTAL_DEBUG_TOOLS_GUI_PRINT_ENV=1 KRISTAL_ROOT= THRASH_MACHINE_KRISTAL_DIR="$gui_root/engine" "$root/bin/gui-download.sh" "$gui_root")
+printf '%s\n' "$output" | grep -Fqx "KRISTAL_ROOT=$gui_root/engine"
+
+# 3. nearest engine by walking up from the mod root.
+mkdir -p "$gui_root/engine/mods/foo"
+printf '%s\n' '{}' > "$gui_root/engine/mods/foo/mod.json"
+output=$(KRISTAL_DEBUG_TOOLS_GUI_PRINT_ENV=1 KRISTAL_ROOT= THRASH_MACHINE_KRISTAL_DIR= "$root/bin/gui-download.sh" "$gui_root/engine/mods/foo")
+printf '%s\n' "$output" | grep -Fqx "KDT_MOD_ROOT=$gui_root/engine/mods/foo"
+printf '%s\n' "$output" | grep -Fqx "KRISTAL_ROOT=$gui_root/engine"
+
+# 4. no engine anywhere -> KRISTAL_ROOT stays empty (GUI reports not found).
+mkdir -p "$gui_root/standalone"
+printf '%s\n' '{}' > "$gui_root/standalone/mod.json"
+output=$(KRISTAL_DEBUG_TOOLS_GUI_PRINT_ENV=1 KRISTAL_ROOT= THRASH_MACHINE_KRISTAL_DIR= "$root/bin/gui-download.sh" "$gui_root/standalone")
+printf '%s\n' "$output" | grep -Fqx "KDT_MOD_ROOT=$gui_root/standalone"
+printf '%s\n' "$output" | grep -Fqx 'KRISTAL_ROOT='
+
+# 5. the mod-root .build/Kristal clone is skipped in favor of the real engine.
+mkdir -p "$gui_root/engine/mods/bar/.build/Kristal/src"
+make_engine "$gui_root/engine/mods/bar/.build/Kristal"
+printf '%s\n' '{}' > "$gui_root/engine/mods/bar/mod.json"
+output=$(KRISTAL_DEBUG_TOOLS_GUI_PRINT_ENV=1 KRISTAL_ROOT="$gui_root/engine/mods/bar/.build/Kristal" "$root/bin/gui-download.sh" "$gui_root/engine/mods/bar")
+printf '%s\n' "$output" | grep -Fqx "KRISTAL_ROOT=$gui_root/engine"
 
 printf '%s\n' 'kristal-debug-tools smoke: PASS'

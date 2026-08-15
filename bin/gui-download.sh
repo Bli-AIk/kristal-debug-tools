@@ -16,22 +16,49 @@ MODE_ARG="${2:-}"
 # (skipping the mod-root .build/Kristal clone) → nearest engine by walking up
 # from the mod root (main.lua + src/kristal.lua) → fall back to the mod root.
 TOOLS_DIR="$MOD_ROOT/.tools"
+ENGINE_ROOT=""
 for candidate in "${KRISTAL_ROOT:-}" "${THRASH_MACHINE_KRISTAL_DIR:-}"; do
     [ -n "$candidate" ] || continue
     [ "$candidate" = "$MOD_ROOT/.build/Kristal" ] && continue
-    [ -f "$candidate/main.lua" ] && { TOOLS_DIR="$candidate/.tools"; break; }
+    if [ -f "$candidate/main.lua" ]; then
+        TOOLS_DIR="$candidate/.tools"
+        ENGINE_ROOT="$candidate"
+        break
+    fi
 done
-if [ "$TOOLS_DIR" = "$MOD_ROOT/.tools" ]; then
+if [ -z "$ENGINE_ROOT" ]; then
     dir="$MOD_ROOT"
     while :; do
         if [ -f "$dir/main.lua" ] && [ -f "$dir/src/kristal.lua" ]; then
             TOOLS_DIR="$dir/.tools"
+            ENGINE_ROOT="$dir"
             break
         fi
         parent=$(dirname "$dir")
         [ "$parent" = "$dir" ] && break
         dir=$parent
     done
+fi
+
+# Export the resolved roots to the GUI app in both modes. The GUI and the
+# kristal-run sidecar resolve the mod by walking up from cwd or reading
+# KDT_MOD_ROOT; the GUI binary is launched from the shared .tools/gui next
+# to the engine, so walking up can never reach the mod there. Passing the
+# roots explicitly keeps bin and compile modes working. Export KRISTAL_ROOT
+# only when a real engine was resolved, so the GUI reports "engine not
+# found" accurately instead of showing a bogus path.
+export KDT_MOD_ROOT="$MOD_ROOT"
+if [ -n "$ENGINE_ROOT" ]; then
+    export KRISTAL_ROOT="$ENGINE_ROOT"
+else
+    unset KRISTAL_ROOT
+fi
+
+# Test hook: print the resolved roots and exit without downloading/launching.
+if [ "${KRISTAL_DEBUG_TOOLS_GUI_PRINT_ENV:-0}" = "1" ]; then
+    printf 'KDT_MOD_ROOT=%s\n' "$KDT_MOD_ROOT"
+    printf 'KRISTAL_ROOT=%s\n' "${KRISTAL_ROOT:-}"
+    exit 0
 fi
 # GUI source is optional and cloned into the shared tools dir (gui-src).
 GUI_REPO_DIR="$TOOLS_DIR/gui-src"
