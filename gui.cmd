@@ -19,14 +19,21 @@ for /f "usebackq delims=" %%M in (`powershell -NoProfile -Command "(Resolve-Path
 if not defined MOD_ROOT set "MOD_ROOT=%~dp0..\.."
 
 rem Shared tools dir, hosted next to the Kristal engine so the GUI cache is
-rem shared across mods and the mod tree stays clean. Resolution mirrors the
-rem build scripts: explicit KRISTAL_ROOT / THRASH_MACHINE_KRISTAL_DIR (skipping
-rem the mod-root .build\Kristal clone) → nearest engine by walking up from the
-rem mod root (main.lua + src\kristal.lua) → fall back to the mod root.
-if defined KRISTAL_ROOT if not exist "%KRISTAL_ROOT%\main.lua" set "KRISTAL_ROOT="
-if defined KRISTAL_ROOT if /i "%KRISTAL_ROOT%"=="%MOD_ROOT%\.build\Kristal" set "KRISTAL_ROOT="
-if defined THRASH_MACHINE_KRISTAL_DIR if exist "%THRASH_MACHINE_KRISTAL_DIR%\main.lua" if /i not "%THRASH_MACHINE_KRISTAL_DIR%"=="%MOD_ROOT%\.build\Kristal" set "KRISTAL_ROOT=%THRASH_MACHINE_KRISTAL_DIR%"
-if not defined KRISTAL_ROOT call :find_kristal "%MOD_ROOT%"
+rem shared across mods and the mod tree stays clean. Resolution is local-first,
+rem mirroring bin\kristal-run: the nearest engine by walking up from the mod
+rem root (main.lua + src\kristal.lua) wins, so a mod living inside its own
+rem engine fork (e.g. el-mods\ inside kristal-el) is never hijacked by a
+rem KRISTAL_ROOT inherited from the shell profile. Explicit KRISTAL_ROOT /
+rem THRASH_MACHINE_KRISTAL_DIR (skipping the mod-root .build\Kristal clone) are
+rem only a fallback for mods outside an engine tree; the final fallback is the
+rem mod root itself.
+set "KRISTAL_ROOT_ENV=%KRISTAL_ROOT%"
+if defined KRISTAL_ROOT_ENV if not exist "%KRISTAL_ROOT_ENV%\main.lua" set "KRISTAL_ROOT_ENV="
+if defined KRISTAL_ROOT_ENV if /i "%KRISTAL_ROOT_ENV%"=="%MOD_ROOT%\.build\Kristal" set "KRISTAL_ROOT_ENV="
+set "KRISTAL_ROOT="
+call :find_kristal "%MOD_ROOT%"
+if not defined KRISTAL_ROOT if defined THRASH_MACHINE_KRISTAL_DIR if exist "%THRASH_MACHINE_KRISTAL_DIR%\main.lua" if /i not "%THRASH_MACHINE_KRISTAL_DIR%"=="%MOD_ROOT%\.build\Kristal" set "KRISTAL_ROOT=%THRASH_MACHINE_KRISTAL_DIR%"
+if not defined KRISTAL_ROOT if defined KRISTAL_ROOT_ENV set "KRISTAL_ROOT=%KRISTAL_ROOT_ENV%"
 if not defined KRISTAL_ROOT set "KRISTAL_ROOT=%MOD_ROOT%"
 set "DL_DIR=%KRISTAL_ROOT%\.tools\gui"
 set "GUI_DIR=%DL_DIR%\gui-src"

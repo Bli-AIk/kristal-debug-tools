@@ -15,32 +15,36 @@ MOD_ROOT="${1:-$(pwd)}"
 MODE_ARG="${2:-}"
 
 # Shared tools dir, hosted next to the Kristal engine so the GUI cache is shared
-# across mods and the mod tree stays clean. Resolution mirrors the build scripts
-# (build-helper/lib.sh): explicit KRISTAL_ROOT / THRASH_MACHINE_KRISTAL_DIR
-# (skipping the mod-root .build/Kristal clone) → nearest engine by walking up
-# from the mod root (main.lua + src/kristal.lua) → fall back to the mod root.
+# across mods and the mod tree stays clean. Resolution is local-first, mirroring
+# bin/kristal-run and the build scripts (build-helper/lib.sh): the nearest engine
+# by walking up from the mod root (main.lua + src/kristal.lua) wins, so a mod
+# living inside its own engine fork (e.g. el-mods/ inside kristal-el) is never
+# hijacked by a KRISTAL_ROOT inherited from the shell profile. Explicit
+# KRISTAL_ROOT / THRASH_MACHINE_KRISTAL_DIR (skipping the mod-root .build/Kristal
+# clone) are only a fallback for mods outside an engine tree; the final fallback
+# is the mod root itself.
 TOOLS_DIR="$MOD_ROOT/.tools"
 ENGINE_ROOT=""
-for candidate in "${KRISTAL_ROOT:-}" "${THRASH_MACHINE_KRISTAL_DIR:-}"; do
-    [ -n "$candidate" ] || continue
-    [ "$candidate" = "$MOD_ROOT/.build/Kristal" ] && continue
-    if [ -f "$candidate/main.lua" ]; then
-        TOOLS_DIR="$candidate/.tools"
-        ENGINE_ROOT="$candidate"
+dir="$MOD_ROOT"
+while :; do
+    if [ -f "$dir/main.lua" ] && [ -f "$dir/src/kristal.lua" ]; then
+        TOOLS_DIR="$dir/.tools"
+        ENGINE_ROOT="$dir"
         break
     fi
+    parent=$(dirname "$dir")
+    [ "$parent" = "$dir" ] && break
+    dir=$parent
 done
 if [ -z "$ENGINE_ROOT" ]; then
-    dir="$MOD_ROOT"
-    while :; do
-        if [ -f "$dir/main.lua" ] && [ -f "$dir/src/kristal.lua" ]; then
-            TOOLS_DIR="$dir/.tools"
-            ENGINE_ROOT="$dir"
+    for candidate in "${KRISTAL_ROOT:-}" "${THRASH_MACHINE_KRISTAL_DIR:-}"; do
+        [ -n "$candidate" ] || continue
+        [ "$candidate" = "$MOD_ROOT/.build/Kristal" ] && continue
+        if [ -f "$candidate/main.lua" ]; then
+            TOOLS_DIR="$candidate/.tools"
+            ENGINE_ROOT="$candidate"
             break
         fi
-        parent=$(dirname "$dir")
-        [ "$parent" = "$dir" ] && break
-        dir=$parent
     done
 fi
 

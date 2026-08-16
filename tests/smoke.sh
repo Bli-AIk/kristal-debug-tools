@@ -80,21 +80,23 @@ make_engine() {
     : > "$1/src/kristal.lua"
 }
 
-# 1. explicit KRISTAL_ROOT wins (mod outside the engine tree).
+# 1. KRISTAL_ROOT is only a fallback: a mod outside any engine tree uses it.
 make_engine "$gui_root/engine"
 printf '%s\n' '{}' > "$gui_root/mod.json"
 output=$(KRISTAL_DEBUG_TOOLS_GUI_PRINT_ENV=1 KRISTAL_ROOT="$gui_root/engine" THRASH_MACHINE_KRISTAL_DIR= "$root/bin/gui-download.sh" "$gui_root")
 printf '%s\n' "$output" | grep -Fqx "KDT_MOD_ROOT=$gui_root"
 printf '%s\n' "$output" | grep -Fqx "KRISTAL_ROOT=$gui_root/engine"
 
-# 2. THRASH_MACHINE_KRISTAL_DIR is used when KRISTAL_ROOT is unset.
+# 2. THRASH_MACHINE_KRISTAL_DIR is a fallback when KRISTAL_ROOT is unset.
 output=$(KRISTAL_DEBUG_TOOLS_GUI_PRINT_ENV=1 KRISTAL_ROOT= THRASH_MACHINE_KRISTAL_DIR="$gui_root/engine" "$root/bin/gui-download.sh" "$gui_root")
 printf '%s\n' "$output" | grep -Fqx "KRISTAL_ROOT=$gui_root/engine"
 
-# 3. nearest engine by walking up from the mod root.
+# 3. local-first: the nearest engine by walking up wins even when KRISTAL_ROOT
+#    points at a different engine (the regression this fixes: a shell-wide
+#    KRISTAL_ROOT used to hijack mods living inside their own engine fork).
 mkdir -p "$gui_root/engine/mods/foo"
 printf '%s\n' '{}' > "$gui_root/engine/mods/foo/mod.json"
-output=$(KRISTAL_DEBUG_TOOLS_GUI_PRINT_ENV=1 KRISTAL_ROOT= THRASH_MACHINE_KRISTAL_DIR= "$root/bin/gui-download.sh" "$gui_root/engine/mods/foo")
+output=$(KRISTAL_DEBUG_TOOLS_GUI_PRINT_ENV=1 KRISTAL_ROOT="$gui_root/other-engine" THRASH_MACHINE_KRISTAL_DIR= "$root/bin/gui-download.sh" "$gui_root/engine/mods/foo")
 printf '%s\n' "$output" | grep -Fqx "KDT_MOD_ROOT=$gui_root/engine/mods/foo"
 printf '%s\n' "$output" | grep -Fqx "KRISTAL_ROOT=$gui_root/engine"
 
@@ -105,7 +107,8 @@ output=$(KRISTAL_DEBUG_TOOLS_GUI_PRINT_ENV=1 KRISTAL_ROOT= THRASH_MACHINE_KRISTA
 printf '%s\n' "$output" | grep -Fqx "KDT_MOD_ROOT=$gui_root/standalone"
 printf '%s\n' "$output" | grep -Fqx 'KRISTAL_ROOT='
 
-# 5. the mod-root .build/Kristal clone is skipped in favor of the real engine.
+# 5. the mod-root .build/Kristal clone is skipped in favor of the real engine
+#    found by walking up.
 mkdir -p "$gui_root/engine/mods/bar/.build/Kristal/src"
 make_engine "$gui_root/engine/mods/bar/.build/Kristal"
 printf '%s\n' '{}' > "$gui_root/engine/mods/bar/mod.json"
