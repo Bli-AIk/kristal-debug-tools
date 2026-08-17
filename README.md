@@ -3,7 +3,7 @@
 [![license](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue)](LICENSE-APACHE) <img src="https://img.shields.io/github/repo-size/Bli-AIk/kristal-debug-tools.svg"/> <img src="https://img.shields.io/github/last-commit/Bli-AIk/kristal-debug-tools.svg"/> <img src="https://img.shields.io/github/v/release/Bli-AIk/kristal-debug-tools.svg"/> <br>
 <img src="https://img.shields.io/badge/Deltarune-001225?style=for-the-badge&labelColor=001225&logo=undertale&logoColor=ff0000" /> <img src="https://img.shields.io/badge/Lua-2C2D72?style=for-the-badge&logo=lua&logoColor=white" /> <img src="https://img.shields.io/badge/Kristal-FF6B35?style=for-the-badge&logo=love2d&logoColor=white" />
 
-**kristal-debug-tools** 是一套 Kristal v0.10 开发期的可复用调试工具，包含两部分：运行时库和命令行启动器。启动器让你不用改 `mod.lua` 就能带战斗调试参数启动项目——直接进遭遇战、指定 wave、塞初始 TP 和仁慈值。
+**kristal-debug-tools** 是一套 Kristal v0.11.0-dev（`f62afea`）开发期的可复用调试工具，包含两部分：运行时库和命令行启动器。启动器让你不用改 `mod.lua` 就能带战斗调试参数启动项目——直接进遭遇战、指定 wave、塞初始 TP 和仁慈值。
 
 | 简体中文 | English                 |
 | -------- | ----------------------- |
@@ -11,9 +11,9 @@
 
 ## Kristal 版本支持
 
-| `kristal`                                                                                                                  | `kristal-debug-tools` |
-| -------------------------------------------------------------------------------------------------------------------------- | --------------------- |
-| [v0.10.0](https://github.com/KristalTeam/Kristal/commit/752bc0688ba97ca8a256ba9125b7e05a1ca6edbd) (`752bc068`, 2026-06-23) | 0.1.0                 |
+| `kristal`                                                                                                                          | `kristal-debug-tools` |
+| ---------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| [v0.11.0-dev](https://github.com/KristalTeam/Kristal/commit/f62afea63ccab02f468c24ac0d096bd8a2c9aa81) (`f62afea`, 2026-08-16) | 0.1.2                 |
 
 ## 功能
 
@@ -76,6 +76,8 @@ just --justfile libraries/kristal-debug-tools/justfile gui
 | `--wave-force` / `-wf`               | 每个防御阶段都重复该 wave                                       |
 | `--tp` / `--initial-tp`              | 设置初始 TP                                                     |
 | `--mercy` / `--initial-mercy` / `-m` | 设置初始敌人仁慈值（0–100）                                     |
+
+Kristal 的 `--disable-stdout-buffer` 是可选引擎参数，启动器不会默认加入。需要时可用 `just --justfile libraries/kristal-debug-tools/justfile run -- --disable-stdout-buffer` 在 `--` 后透传。
 
 所有运行时行为默认仅限开发模式；启动器本身不会进入面向玩家的发行包。
 

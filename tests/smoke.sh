@@ -3,15 +3,23 @@ set -euo pipefail
 
 root=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
 project_root=${KRISTAL_DEBUG_TOOLS_TEST_PROJECT_ROOT:-}
-if [ -z "$project_root" ]; then
-    project_root=$(CDPATH= cd -- "$root/../thrash-machine" && pwd -P)
+runner="$root/bin/kristal-run"
+fixture_root=$(mktemp -d)
+fixture_engine="$fixture_root/engine"
+mkdir -p "$fixture_engine/src"
+: > "$fixture_engine/main.lua"
+: > "$fixture_engine/src/kristal.lua"
+
+if [ -z "$project_root" ] || [ ! -f "$project_root/mod.json" ]; then
+    project_root="$fixture_engine/mod"
+    mkdir -p "$project_root"
+    printf '%s\n' '{}' > "$project_root/mod.json"
 fi
 
-runner="$root/bin/kristal-run"
 dry_run() {
     KRISTAL_MOD_ROOT="$project_root" \
     KRISTAL_DEBUG_TOOLS_DRY_RUN=1 \
-    KRISTAL_ROOT= \
+    KRISTAL_ROOT="$fixture_engine" \
     "$runner" "$@"
 }
 
@@ -40,6 +48,9 @@ printf '%s\n' "$output" | grep -F -- '--lang zh-hans' >/dev/null
 output=$(dry_run -- --custom value)
 printf '%s\n' "$output" | grep -F -- '--custom value' >/dev/null
 
+output=$(dry_run -- --disable-stdout-buffer)
+printf '%s\n' "$output" | grep -F -- '--disable-stdout-buffer' >/dev/null
+
 if dry_run --tp >/dev/null 2>&1; then
     printf '%s\n' 'missing-value validation failed' >&2
     exit 1
@@ -57,7 +68,7 @@ fi
 
 precedence_root=$(mktemp -d)
 gui_root=$(mktemp -d)
-trap 'rm -rf "$precedence_root" "$gui_root"' EXIT
+trap 'rm -rf "$fixture_root" "$precedence_root" "$gui_root"' EXIT
 mkdir -p "$precedence_root/engine/src" "$precedence_root/engine/mod"
 : > "$precedence_root/engine/main.lua"
 : > "$precedence_root/engine/src/kristal.lua"
