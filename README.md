@@ -3,7 +3,7 @@
 [![license](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue)](LICENSE-APACHE) <img src="https://img.shields.io/github/repo-size/Bli-AIk/kristal-debug-tools.svg"/> <img src="https://img.shields.io/github/last-commit/Bli-AIk/kristal-debug-tools.svg"/> <img src="https://img.shields.io/github/v/release/Bli-AIk/kristal-debug-tools.svg"/> <br>
 <img src="https://img.shields.io/badge/Deltarune-001225?style=for-the-badge&labelColor=001225&logo=undertale&logoColor=ff0000" /> <img src="https://img.shields.io/badge/Lua-2C2D72?style=for-the-badge&logo=lua&logoColor=white" /> <img src="https://img.shields.io/badge/Kristal-FF6B35?style=for-the-badge&logo=love2d&logoColor=white" />
 
-**kristal-debug-tools** 是一套 Kristal v0.11.0-dev（`f62afea`）开发期的可复用调试工具，包含两部分：运行时库和命令行启动器。启动器让你不用改 `mod.lua` 就能带战斗调试参数启动项目——直接进遭遇战、指定 wave、塞初始 TP 和仁慈值。
+**kristal-debug-tools** 是一套 Kristal 开发期的可复用调试工具，包含两部分：运行时库和命令行启动器。启动器让你不用改 `mod.lua` 就能带战斗调试参数启动项目——直接进遭遇战、指定 wave、塞初始 TP 和仁慈值。
 
 | 简体中文 | English                 |
 | -------- | ----------------------- |

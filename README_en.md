@@ -3,7 +3,7 @@
 [![license](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue)](LICENSE-APACHE) <img src="https://img.shields.io/github/repo-size/Bli-AIk/kristal-debug-tools.svg"/> <img src="https://img.shields.io/github/last-commit/Bli-AIk/kristal-debug-tools.svg"/> <img src="https://img.shields.io/github/v/release/Bli-AIk/kristal-debug-tools.svg"/> <br>
 <img src="https://img.shields.io/badge/Deltarune-001225?style=for-the-badge&labelColor=001225&logo=undertale&logoColor=ff0000" /> <img src="https://img.shields.io/badge/Lua-2C2D72?style=for-the-badge&logo=lua&logoColor=white" /> <img src="https://img.shields.io/badge/Kristal-FF6B35?style=for-the-badge&logo=love2d&logoColor=white" />
 
-**kristal-debug-tools** is a set of reusable development tools for Kristal v0.11.0-dev (`f62afea`), in two parts: a runtime library and a command-line launcher. The launcher starts your project with battle debugging options without touching `mod.lua` — jump straight into an encounter, pick a wave, inject starting TP and mercy.
+**kristal-debug-tools** is a set of reusable development tools for Kristal, in two parts: a runtime library and a command-line launcher. The launcher starts your project with battle debugging options without touching `mod.lua` — jump straight into an encounter, pick a wave, inject starting TP and mercy.
 
 | English | 简体中文                |
 | ------- | ----------------------- |
