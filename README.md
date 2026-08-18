@@ -62,9 +62,9 @@ just --justfile libraries/kristal-debug-tools/justfile run --wave 2 --tp 50
 just --justfile libraries/kristal-debug-tools/justfile gui
 ```
 
-或者 Windows 双击库目录下的 `gui.cmd`。首次运行自动下载 release 二进制（SHA256 校验），之后每次启动自动检查更新，有新版就重新下载。**不需要 just / Rust / Node**；只需要 LÖVE 装好并进 PATH（Git Bash 进 PATH 后，GUI 里跑构建类任务也没问题）。`just` 已编译进程序本体。
+或者 Windows 双击库目录下的 `gui.cmd`。首次运行会按 Kristal 引擎的 `VERSION` 下载对应的固定 release 二进制（SHA256 校验）；不会跟随 GitHub 的全局最新版，以免旧引擎下载到不兼容的 GUI。当前支持 Kristal `0.10.0` 和 `0.11.0-dev`，其他版本会明确报错。**不需要 just / Rust / Node**；只需要 LÖVE 装好并进 PATH（Git Bash 进 PATH 后，GUI 里跑构建类任务也没问题）。`just` 已编译进程序本体。
 
-`just gui` 固定使用 release 二进制（下载到 Kristal 引擎旁的共享 `.tools/gui/` 并自动更新），不询问、不记忆 bin/compile 模式，也不会误用源码编译出的 dev 二进制。GUI 不是子模块，源码模式（`just gui-dev`）会按需 clone；想要 Rust release 构建就用 `just gui-dev-release`。
+`just gui` 固定使用 release 二进制（下载到 Kristal 引擎旁的共享 `.tools/gui/`），不询问、不记忆 bin/compile 模式，也不会误用源码编译出的 dev 二进制。GUI 不是子模块；源码模式（`just gui-dev`）会 checkout 与当前引擎匹配的 GUI ref，并且在源码目录有本地改动时停止，避免覆盖开发中的工作。想要 Rust release 构建就用 `just gui-dev-release`。
 
 ### 启动器选项
 

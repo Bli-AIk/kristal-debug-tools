@@ -12,9 +12,9 @@ run *args:
 test:
     @KRISTAL_DEBUG_TOOLS_TEST_PROJECT_ROOT="{{ invocation_directory() }}" "{{ justfile_directory() }}/tests/smoke.sh"
 
-# Run the GUI for end users (checks for a newer release and downloads it;
-# always runs release binaries; `just gui-dev` compiles from source).
-# zh_hans: 启动图形界面：无需 just/Rust/Node，固定使用 release 二进制并自动检测更新
+# Run the GUI for end users (selects the fixed compatible release from the
+# detected Kristal VERSION; `just gui-dev` compiles from source).
+# zh_hans: 启动图形界面：无需 just/Rust/Node，按 Kristal VERSION 选择兼容的固定 release 二进制
 gui *args:
     @{{ if os() == "windows" { "\"" + justfile_directory() + "/gui.cmd\"" } else { "sh \"" + justfile_directory() + "/bin/gui-download.sh\" \"" + invocation_directory() + "\"" } }} {{ args }}
 
