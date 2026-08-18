@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.1.3](https://github.com/Bli-AIk/kristal-debug-tools/compare/v0.1.2...v0.1.3) (2026-08-18)
+
+
+### chore
+
+* force release 0.1.3 ([9ff9b1a](https://github.com/Bli-AIk/kristal-debug-tools/commit/9ff9b1a540647a978c2f3dcec4cb831dc50e5e61))
+
+
+### Features
+
+* support Kristal 0.11.0-dev ([1aaed00](https://github.com/Bli-AIk/kristal-debug-tools/commit/1aaed00817b02817b59e4a90dea284cdca988816))
+
+
+### Bug Fixes
+
+* **debug-tools:** support Kristal 0.11.0-dev ([fdfcb21](https://github.com/Bli-AIk/kristal-debug-tools/commit/fdfcb21488be9567ce717befa278a04fcb7fd9ee))
+* **gui:** export resolved roots to the app from gui-download.sh ([ba5a230](https://github.com/Bli-AIk/kristal-debug-tools/commit/ba5a230dc4368f4c1fb26864b5515ef2b85ea047))
+* **gui:** harden downloader against stale caches and failed API checks ([619486e](https://github.com/Bli-AIk/kristal-debug-tools/commit/619486ed5f3bfc89f38343a93e15dc308e2470cb))
+* **gui:** resolve the local engine fork first (local-first) ([c1baebe](https://github.com/Bli-AIk/kristal-debug-tools/commit/c1baebebc96f02c2db5f24d0134630dfe2c7ed0e))
+* **gui:** select releases by Kristal version ([606a5f5](https://github.com/Bli-AIk/kristal-debug-tools/commit/606a5f5cc75a3792dd4bfffe5cbc2636233a5b76))
+
 ## [0.1.2](https://github.com/Bli-AIk/kristal-debug-tools/compare/v0.1.1...v0.1.2) (2026-08-15)
 
 
