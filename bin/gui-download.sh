@@ -3,12 +3,8 @@
 # Node/just needed (just is compiled into the kristal-run sidecar).
 #   - `just gui` always runs the release binaries; compile mode is only
 #     used by `just gui-dev` / `just gui-dev-release`.
-#   - Release binaries are auto-checked against the latest GitHub release
-#     and re-downloaded when a newer version exists (SHA256-verified).
-#   - If the latest release's assets are not uploaded yet (e.g. release-please
-#     just cut the tag and CI is still building), the previous release is
-#     downloaded instead. The cached version is always shown and re-checked on
-#     the next run, so it self-heals back to the latest once it is ready.
+#   - Release binaries are selected from the detected Kristal VERSION and
+#     downloaded from that exact release tag (SHA256-verified).
 set -eu
 
 MOD_ROOT="${1:-$(pwd)}"
@@ -68,58 +64,46 @@ if [ "${KRISTAL_DEBUG_TOOLS_GUI_PRINT_ENV:-0}" = "1" ]; then
     printf 'KRISTAL_ROOT=%s\n' "${KRISTAL_ROOT:-}"
     exit 0
 fi
-# GUI source is optional and cloned into the shared tools dir (gui-src).
-GUI_REPO_DIR="$TOOLS_DIR/gui-src"
-
-DL_DIR="$TOOLS_DIR/gui"
-mkdir -p "$DL_DIR"
-VERSION_FILE="$DL_DIR/version.txt"
 GUI_REPO="https://github.com/Bli-AIk/kristal-debug-tools-gui.git"
-RELEASE_BASE="https://github.com/Bli-AIk/kristal-debug-tools-gui/releases/latest/download"
-RELEASE_API="https://api.github.com/repos/Bli-AIk/kristal-debug-tools-gui/releases/latest"
-RELEASES_API="https://api.github.com/repos/Bli-AIk/kristal-debug-tools-gui/releases?per_page=10"
 DOWNLOAD_BASE="https://github.com/Bli-AIk/kristal-debug-tools-gui/releases/download"
 
-latest_version() {
-    curl -fsSL --max-time 10 -H "User-Agent: kristal-debug-tools-gui" "$RELEASE_API" \
-        | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
-        | head -1
-}
+select_gui_version() {
+    if [ -z "$ENGINE_ROOT" ] || [ ! -f "$ENGINE_ROOT/VERSION" ]; then
+        echo "[kristal-debug-tools] Could not detect a Kristal VERSION. GUI download is supported only for Kristal 0.10.0 and 0.11.0-dev." >&2
+        return 1
+    fi
 
-# Tag of the second-newest non-draft, non-prerelease release (used as the
-# fallback while the newest release's assets are still being built).
-previous_version() {
-    curl -fsSL --max-time 10 -H "User-Agent: kristal-debug-tools-gui" "$RELEASES_API" \
-        | tr ',' '\n' \
-        | awk '
-            /^[[:space:]]*"tag_name"/ { tag=$0; sub(/^.*"tag_name"[[:space:]]*:[[:space:]]*"/, "", tag); sub(/".*$/, "", tag) }
-            /^[[:space:]]*"draft"[[:space:]]*:/ { draft=$0; sub(/^.*"draft"[[:space:]]*:[[:space:]]*/, "", draft); sub(/[,}].*$/, "", draft) }
-            /^[[:space:]]*"prerelease"[[:space:]]*:/ { pre=$0; sub(/^.*"prerelease"[[:space:]]*:[[:space:]]*/, "", pre); sub(/[,}].*$/, "", pre) }
-            /^[[:space:]]*"published_at"/ && tag != "" { if (draft == "false" && pre == "false") { n++; if (n == 2) { print tag; exit } } }
-        ' \
-        | tail -1
+    ENGINE_VERSION=$(sed -n '1p' "$ENGINE_ROOT/VERSION" | tr -d '\r')
+    case "$ENGINE_VERSION" in
+        0.10.0|v0.10.0)
+            GUI_RELEASE_TAG="v0.1.5"
+            GUI_SOURCE_REF="v0.1.5"
+            GUI_SOURCE_KIND="tag"
+            ;;
+        0.11.0-dev|v0.11.0-dev)
+            GUI_RELEASE_TAG="v0.2.0"
+            GUI_SOURCE_REF="feat/v0.11-dev"
+            GUI_SOURCE_KIND="branch"
+            ;;
+        *)
+            echo "[kristal-debug-tools] Unsupported Kristal VERSION \"$ENGINE_VERSION\". GUI download is supported only for Kristal 0.10.0 and 0.11.0-dev." >&2
+            return 1
+            ;;
+    esac
 }
 
 # Download + SHA256-verify one release's assets into $DL_DIR (atomically:
 # nothing is overwritten until the whole set verifies). $1 = download base.
-# Writes version.txt when the release tag can be resolved from the redirect
-# URL (i.e. even when the API check failed earlier).
 download_release() {
     base_url="$1"
     tmp_dir="$DL_DIR/.tmp-download-$$"
     rm -rf "$tmp_dir"
     mkdir -p "$tmp_dir"
-    location=""
     for f in "$GUI_BIN" "$GUI_SIDE" "$CHECKSUMS"; do
         echo "[kristal-debug-tools] downloading $f"
         if ! curl -fsSL -o "$tmp_dir/$f" "$base_url/$f"; then
             rm -rf "$tmp_dir"
             return 1
-        fi
-        if [ -z "$location" ]; then
-            # GitHub first redirects latest/download to /releases/download/<tag>/...
-            # before bouncing to a CDN; the tag comes from that first Location.
-            location=$(curl -sSI --max-time 15 "$base_url/$f" 2>/dev/null | tr -d '\r' | awk 'tolower($1)=="location:" {print $2; exit}' || true)
         fi
     done
     if ! (cd "$tmp_dir" && sha256sum -c "$CHECKSUMS"); then
@@ -131,10 +115,7 @@ download_release() {
     mv -f "$tmp_dir/$CHECKSUMS" "$DL_DIR/$CHECKSUMS"
     chmod +x "$DL_DIR/$GUI_BIN" "$DL_DIR/$GUI_SIDE"
     rm -rf "$tmp_dir"
-    tag=$(printf '%s\n' "$location" | sed -n 's#.*/releases/download/\([^/]*\)/.*#\1#p')
-    if [ -n "$tag" ]; then
-        printf '%s\n' "$tag" > "$VERSION_FILE"
-    fi
+    printf '%s\n' "$GUI_RELEASE_TAG" > "$VERSION_FILE"
 }
 
 # Verify the cached binaries against the checksums file. Returns 0 when both
@@ -143,21 +124,75 @@ verify_cached() {
     (cd "$DL_DIR" && sha256sum -c "$CHECKSUMS" >/dev/null 2>&1)
 }
 
+prepare_gui_source() {
+    if [ ! -e "$GUI_REPO_DIR/.git" ]; then
+        if [ -e "$GUI_REPO_DIR" ]; then
+            echo "[kristal-debug-tools] $GUI_REPO_DIR exists but is not a git checkout; remove it or clone manually." >&2
+            return 1
+        fi
+        echo "[kristal-debug-tools] Cloning GUI source at $GUI_SOURCE_REF..."
+        git clone --depth 1 --branch "$GUI_SOURCE_REF" "$GUI_REPO" "$GUI_REPO_DIR" || return 1
+        return 0
+    fi
+
+    if ! source_status=$(git -C "$GUI_REPO_DIR" status --porcelain); then
+        echo "[kristal-debug-tools] Could not inspect $GUI_REPO_DIR." >&2
+        return 1
+    fi
+    if [ -n "$source_status" ]; then
+        echo "[kristal-debug-tools] $GUI_REPO_DIR has local changes; gui-dev will not switch or update it." >&2
+        return 1
+    fi
+
+    if [ "$GUI_SOURCE_KIND" = "tag" ]; then
+        git -C "$GUI_REPO_DIR" fetch origin "refs/tags/$GUI_SOURCE_REF:refs/tags/$GUI_SOURCE_REF" || return 1
+        git -C "$GUI_REPO_DIR" switch --detach "$GUI_SOURCE_REF" || return 1
+        return 0
+    fi
+
+    git -C "$GUI_REPO_DIR" fetch origin "refs/heads/$GUI_SOURCE_REF:refs/remotes/origin/$GUI_SOURCE_REF" || return 1
+    if git -C "$GUI_REPO_DIR" show-ref --verify --quiet "refs/heads/$GUI_SOURCE_REF"; then
+        git -C "$GUI_REPO_DIR" switch "$GUI_SOURCE_REF" || return 1
+    else
+        git -C "$GUI_REPO_DIR" switch --create "$GUI_SOURCE_REF" "origin/$GUI_SOURCE_REF" || return 1
+    fi
+    if ! git -C "$GUI_REPO_DIR" merge-base --is-ancestor HEAD "origin/$GUI_SOURCE_REF"; then
+        echo "[kristal-debug-tools] $GUI_REPO_DIR cannot fast-forward to $GUI_SOURCE_REF; gui-dev will not overwrite local commits." >&2
+        return 1
+    fi
+    git -C "$GUI_REPO_DIR" merge --ff-only "origin/$GUI_SOURCE_REF" || return 1
+}
+
+if ! select_gui_version; then
+    exit 1
+fi
+RELEASE_BASE="$DOWNLOAD_BASE/$GUI_RELEASE_TAG"
+
+# Test hook: print the version mapping and exit before downloading/launching.
+if [ "${KRISTAL_DEBUG_TOOLS_GUI_PRINT_SELECTION:-0}" = "1" ]; then
+    printf 'ENGINE_VERSION=%s\n' "$ENGINE_VERSION"
+    printf 'GUI_RELEASE_TAG=%s\n' "$GUI_RELEASE_TAG"
+    printf 'GUI_SOURCE_REF=%s\n' "$GUI_SOURCE_REF"
+    printf 'GUI_SOURCE_KIND=%s\n' "$GUI_SOURCE_KIND"
+    printf 'GUI_RELEASE_URL=%s\n' "$RELEASE_BASE"
+    exit 0
+fi
+
+# GUI source is optional and cloned into the shared tools dir (gui-src).
+GUI_REPO_DIR="$TOOLS_DIR/gui-src"
+DL_DIR="$TOOLS_DIR/gui"
+mkdir -p "$DL_DIR"
+VERSION_FILE="$DL_DIR/version.txt"
+
 case "$MODE_ARG" in
     compile|compile-release) MODE="$MODE_ARG" ;;
     *) MODE=bin ;;
 esac
 
 if [ "$MODE" = compile ] || [ "$MODE" = compile-release ]; then
-    if [ ! -e "$GUI_REPO_DIR/.git" ]; then
-        if [ -e "$GUI_REPO_DIR" ]; then
-            echo "[kristal-debug-tools] $GUI_REPO_DIR exists but is not a git checkout; remove it or clone manually." >&2
-        else
-            echo "[kristal-debug-tools] Cloning GUI source for local compile..."
-            if ! git clone --depth 1 "$GUI_REPO" "$GUI_REPO_DIR"; then
-                echo "[kristal-debug-tools] Clone failed, falling back to release binaries."
-            fi
-        fi
+    if ! prepare_gui_source; then
+        echo "[kristal-debug-tools] gui-dev could not prepare the compatible source checkout." >&2
+        exit 1
     fi
     # tauri dev only compiles the main bin; build the kristal-run sidecar
     # first or the task list comes up empty.
@@ -191,73 +226,22 @@ esac
 GUI_BIN="kristal-debug-tools-gui-linux-${ARCH}"
 GUI_SIDE="kristal-run-linux-${ARCH}"
 CHECKSUMS="checksums-linux-${ARCH}.txt"
-LATEST="$(latest_version 2>/dev/null || true)"
 
 need_download=false
 if [ ! -f "$GUI_BIN" ] || [ ! -f "$GUI_SIDE" ] || [ ! -f "$CHECKSUMS" ]; then
     need_download=true
-elif [ -n "$LATEST" ]; then
-    # Re-download when the recorded version differs from the latest OR when
-    # the cached files no longer match their checksums.
-    if [ "$(cat "$VERSION_FILE" 2>/dev/null || true)" != "$LATEST" ] || ! verify_cached; then
-        need_download=true
-    fi
+elif [ "$(cat "$VERSION_FILE" 2>/dev/null || true)" != "$GUI_RELEASE_TAG" ] || ! verify_cached; then
+    need_download=true
 fi
 
 if [ "$need_download" = false ]; then
-    if [ -z "$LATEST" ]; then
-        if verify_cached; then
-            VERSION="$(cat "$VERSION_FILE" 2>/dev/null || true)"
-            if [ -n "$VERSION" ]; then
-                echo "[kristal-debug-tools] Could not check for updates; using verified cached build $VERSION."
-            else
-                echo "[kristal-debug-tools] Could not check for updates; using verified cached build (version unknown)."
-            fi
-        else
-            echo "[kristal-debug-tools] Cached build failed checksum verification, re-downloading." >&2
-            need_download=true
-        fi
-    fi
-    if [ "$need_download" = false ]; then
-        exec "./$GUI_BIN"
-    fi
+    echo "[kristal-debug-tools] Using verified GUI release $GUI_RELEASE_TAG for Kristal $ENGINE_VERSION."
+    exec "./$GUI_BIN"
 fi
 
-echo "[kristal-debug-tools] Downloading the GUI (latest release)..."
+echo "[kristal-debug-tools] Downloading GUI release $GUI_RELEASE_TAG for Kristal $ENGINE_VERSION..."
 if download_release "$RELEASE_BASE"; then
-    if [ -n "$LATEST" ] && [ ! -f "$VERSION_FILE" ]; then
-        printf '%s\n' "$LATEST" > "$VERSION_FILE"
-    fi
     exec "./$GUI_BIN"
 fi
-
-# The latest release's assets are not uploaded yet (e.g. CI is still
-# building them), so fall back to the previous release.
-PREV="$(previous_version 2>/dev/null || true)"
-if [ -z "$PREV" ]; then
-    echo "[kristal-debug-tools] The latest release is not ready and no previous release was found. Try again later." >&2
-    exit 1
-fi
-if [ -n "$LATEST" ]; then
-    echo "[kristal-debug-tools] The latest release ($LATEST) is not ready yet; falling back to previous release $PREV."
-else
-    echo "[kristal-debug-tools] The latest release is not ready yet; falling back to previous release $PREV."
-fi
-
-# If the previous release is already cached and still intact, use it without
-# re-downloading (still shown, and re-checked on the next run).
-if [ "$(cat "$VERSION_FILE" 2>/dev/null || true)" = "$PREV" ] \
-   && [ -f "$GUI_BIN" ] && [ -f "$GUI_SIDE" ] && [ -f "$CHECKSUMS" ] \
-   && verify_cached; then
-    echo "[kristal-debug-tools] Previous release $PREV is already downloaded and verified."
-    exec "./$GUI_BIN"
-fi
-
-echo "[kristal-debug-tools] Downloading previous release $PREV..."
-if download_release "$DOWNLOAD_BASE/$PREV"; then
-    printf '%s\n' "$PREV" > "$VERSION_FILE"
-    exec "./$GUI_BIN"
-fi
-
-echo "[kristal-debug-tools] Could not download the latest or previous release. Check your network or build locally." >&2
+echo "[kristal-debug-tools] Could not download or verify GUI release $GUI_RELEASE_TAG. Check your network or build locally." >&2
 exit 1

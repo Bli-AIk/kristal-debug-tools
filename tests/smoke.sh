@@ -3,15 +3,23 @@ set -euo pipefail
 
 root=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
 project_root=${KRISTAL_DEBUG_TOOLS_TEST_PROJECT_ROOT:-}
-if [ -z "$project_root" ]; then
-    project_root=$(CDPATH= cd -- "$root/../thrash-machine" && pwd -P)
+runner="$root/bin/kristal-run"
+fixture_root=$(mktemp -d)
+fixture_engine="$fixture_root/engine"
+mkdir -p "$fixture_engine/src"
+: > "$fixture_engine/main.lua"
+: > "$fixture_engine/src/kristal.lua"
+
+if [ -z "$project_root" ] || [ ! -f "$project_root/mod.json" ]; then
+    project_root="$fixture_engine/mod"
+    mkdir -p "$project_root"
+    printf '%s\n' '{}' > "$project_root/mod.json"
 fi
 
-runner="$root/bin/kristal-run"
 dry_run() {
     KRISTAL_MOD_ROOT="$project_root" \
     KRISTAL_DEBUG_TOOLS_DRY_RUN=1 \
-    KRISTAL_ROOT= \
+    KRISTAL_ROOT="$fixture_engine" \
     "$runner" "$@"
 }
 
@@ -40,6 +48,9 @@ printf '%s\n' "$output" | grep -F -- '--lang zh-hans' >/dev/null
 output=$(dry_run -- --custom value)
 printf '%s\n' "$output" | grep -F -- '--custom value' >/dev/null
 
+output=$(dry_run -- --disable-stdout-buffer)
+printf '%s\n' "$output" | grep -F -- '--disable-stdout-buffer' >/dev/null
+
 if dry_run --tp >/dev/null 2>&1; then
     printf '%s\n' 'missing-value validation failed' >&2
     exit 1
@@ -57,7 +68,8 @@ fi
 
 precedence_root=$(mktemp -d)
 gui_root=$(mktemp -d)
-trap 'rm -rf "$precedence_root" "$gui_root"' EXIT
+selection_root=$(mktemp -d)
+trap 'rm -rf "$fixture_root" "$precedence_root" "$gui_root" "$selection_root"' EXIT
 mkdir -p "$precedence_root/engine/src" "$precedence_root/engine/mod"
 : > "$precedence_root/engine/main.lua"
 : > "$precedence_root/engine/src/kristal.lua"
@@ -114,5 +126,39 @@ make_engine "$gui_root/engine/mods/bar/.build/Kristal"
 printf '%s\n' '{}' > "$gui_root/engine/mods/bar/mod.json"
 output=$(KRISTAL_DEBUG_TOOLS_GUI_PRINT_ENV=1 KRISTAL_ROOT="$gui_root/engine/mods/bar/.build/Kristal" "$root/bin/gui-download.sh" "$gui_root/engine/mods/bar")
 printf '%s\n' "$output" | grep -Fqx "KRISTAL_ROOT=$gui_root/engine"
+
+# gui-download.sh selects a fixed GUI release and source ref from the real
+# engine VERSION. It must not fall back to GitHub's global latest release.
+make_engine "$selection_root/engine"
+mkdir -p "$selection_root/project"
+printf '%s\n' '{}' > "$selection_root/project/mod.json"
+
+printf '%s\n' '0.10.0' > "$selection_root/engine/VERSION"
+output=$(KRISTAL_DEBUG_TOOLS_GUI_PRINT_SELECTION=1 KRISTAL_ROOT="$selection_root/engine" "$root/bin/gui-download.sh" "$selection_root/project")
+printf '%s\n' "$output" | grep -Fqx 'ENGINE_VERSION=0.10.0'
+printf '%s\n' "$output" | grep -Fqx 'GUI_RELEASE_TAG=v0.1.5'
+printf '%s\n' "$output" | grep -Fqx 'GUI_SOURCE_REF=v0.1.5'
+printf '%s\n' "$output" | grep -Fqx 'GUI_SOURCE_KIND=tag'
+printf '%s\n' "$output" | grep -Fqx 'GUI_RELEASE_URL=https://github.com/Bli-AIk/kristal-debug-tools-gui/releases/download/v0.1.5'
+
+printf '%s\n' '0.11.0-dev' > "$selection_root/engine/VERSION"
+output=$(KRISTAL_DEBUG_TOOLS_GUI_PRINT_SELECTION=1 KRISTAL_ROOT="$selection_root/engine" "$root/bin/gui-download.sh" "$selection_root/project")
+printf '%s\n' "$output" | grep -Fqx 'ENGINE_VERSION=0.11.0-dev'
+printf '%s\n' "$output" | grep -Fqx 'GUI_RELEASE_TAG=v0.2.0'
+printf '%s\n' "$output" | grep -Fqx 'GUI_SOURCE_REF=feat/v0.11-dev'
+printf '%s\n' "$output" | grep -Fqx 'GUI_SOURCE_KIND=branch'
+printf '%s\n' "$output" | grep -Fqx 'GUI_RELEASE_URL=https://github.com/Bli-AIk/kristal-debug-tools-gui/releases/download/v0.2.0'
+
+printf '%s\n' '0.12.0-dev' > "$selection_root/engine/VERSION"
+if output=$(KRISTAL_DEBUG_TOOLS_GUI_PRINT_SELECTION=1 KRISTAL_ROOT="$selection_root/engine" "$root/bin/gui-download.sh" "$selection_root/project" 2>&1); then
+    printf '%s\n' 'unsupported VERSION unexpectedly selected a GUI build' >&2
+    exit 1
+fi
+printf '%s\n' "$output" | grep -F 'Unsupported Kristal VERSION "0.12.0-dev"' >/dev/null
+
+if grep -Eq 'releases/latest|previous_version|RELEASE_API|RELEASES_API' "$root/bin/gui-download.sh" "$root/gui.cmd"; then
+    printf '%s\n' 'GUI downloader still contains a latest/previous-release path' >&2
+    exit 1
+fi
 
 printf '%s\n' 'kristal-debug-tools smoke: PASS'

@@ -1,7 +1,7 @@
 {
     "id": "kristal-debug-tools",
     "version": "v0.1.2", // x-release-please-version
-    "engineVer": "v0.10.0",
+    "engineVer": "v0.11.0-dev",
     "authors": ["Bli-AIk"],
     "config": {
         "enabled": true,

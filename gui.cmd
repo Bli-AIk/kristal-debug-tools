@@ -2,13 +2,10 @@
 rem gui.cmd - start the kristal-debug-tools GUI without installing anything.
 rem   - `gui` always runs release binaries; compile is only used by
 rem     `gui-dev` / `gui-dev-release`.
-rem   - Otherwise checks the latest GitHub release and downloads/updates the
-rem     release binaries into the shared .tools\gui\ next to the Kristal engine
-rem     (SHA256-verified). `just` is compiled into the kristal-run sidecar.
-rem   - If the latest release's assets are not uploaded yet (e.g. release-please
-rem     just cut the tag and CI is still building), the previous release is
-rem     downloaded instead. The cached version is always shown and re-checked on
-rem     the next run, so it self-heals back to the latest once it is ready.
+rem   - Release binaries are selected from the detected Kristal VERSION and
+rem     downloaded from that exact tag into the shared .tools\gui\ next to the
+rem     Kristal engine (SHA256-verified). `just` is compiled into the
+rem     kristal-run sidecar.
 rem   - Compile mode clones the GUI source repo on demand; the GUI is no
 rem     longer a required submodule.
 setlocal EnableExtensions
@@ -34,21 +31,23 @@ set "KRISTAL_ROOT="
 call :find_kristal "%MOD_ROOT%"
 if not defined KRISTAL_ROOT if defined THRASH_MACHINE_KRISTAL_DIR if exist "%THRASH_MACHINE_KRISTAL_DIR%\main.lua" if /i not "%THRASH_MACHINE_KRISTAL_DIR%"=="%MOD_ROOT%\.build\Kristal" set "KRISTAL_ROOT=%THRASH_MACHINE_KRISTAL_DIR%"
 if not defined KRISTAL_ROOT if defined KRISTAL_ROOT_ENV set "KRISTAL_ROOT=%KRISTAL_ROOT_ENV%"
+set "ENGINE_ROOT="
+if defined KRISTAL_ROOT if exist "%KRISTAL_ROOT%\main.lua" set "ENGINE_ROOT=%KRISTAL_ROOT%"
 if not defined KRISTAL_ROOT set "KRISTAL_ROOT=%MOD_ROOT%"
 set "DL_DIR=%KRISTAL_ROOT%\.tools\gui"
-set "GUI_DIR=%DL_DIR%\gui-src"
+set "GUI_DIR=%KRISTAL_ROOT%\.tools\gui-src"
 
 rem Export the resolved roots to the GUI app in both modes. The GUI and the
 rem kristal-run sidecar resolve the mod by walking up from cwd or reading
-rem KDT_MOD_ROOT; compile mode runs from the shared .tools\gui\gui-src next
+rem KDT_MOD_ROOT; compile mode runs from the shared .tools\gui-src next
 rem to the engine, so walking up can never reach the mod. Passing the roots
 rem explicitly keeps gui-dev working from the new shared location. The
 rem KRISTAL_ROOT fallback above is only for the cache dir (DL_DIR); export
 rem it to the app only when a real engine (main.lua) was resolved, otherwise
 rem clear it so the GUI reports "engine not found" accurately.
 set "KDT_MOD_ROOT=%MOD_ROOT%"
-if exist "%KRISTAL_ROOT%\main.lua" (
-    set "KRISTAL_ROOT=%KRISTAL_ROOT%"
+if defined ENGINE_ROOT (
+    set "KRISTAL_ROOT=%ENGINE_ROOT%"
 ) else (
     set "KRISTAL_ROOT="
 )
@@ -69,7 +68,20 @@ if /i "%ARCH%"=="x64" (
 set "DL_EXE=%DL_DIR%\kristal-debug-tools-gui-windows-%ARCH%.exe"
 set "DL_SIDE=%DL_DIR%\kristal-run-windows-%ARCH%.exe"
 set "DL_SUMS=%DL_DIR%\checksums-windows-%ARCH%.txt"
-set "RELEASE_BASE=https://github.com/Bli-AIk/kristal-debug-tools-gui/releases/latest/download/"
+set "GUI_REPO=https://github.com/Bli-AIk/kristal-debug-tools-gui.git"
+set "DOWNLOAD_BASE=https://github.com/Bli-AIk/kristal-debug-tools-gui/releases/download"
+call :select-version
+if errorlevel 1 exit /b 1
+set "RELEASE_BASE=%DOWNLOAD_BASE%/%GUI_RELEASE_TAG%/"
+
+if /i "%KRISTAL_DEBUG_TOOLS_GUI_PRINT_SELECTION%"=="1" (
+    echo ENGINE_VERSION=%ENGINE_VERSION%
+    echo GUI_RELEASE_TAG=%GUI_RELEASE_TAG%
+    echo GUI_SOURCE_REF=%GUI_SOURCE_REF%
+    echo GUI_SOURCE_KIND=%GUI_SOURCE_KIND%
+    echo GUI_RELEASE_URL=%RELEASE_BASE%
+    exit /b 0
+)
 
 if /i "%~1"=="compile" (
     set "MODE=compile"
@@ -82,15 +94,10 @@ if /i "%~1"=="compile-release" (
 goto download
 
 :compile
-if not exist "%GUI_DIR%\.git" (
-    if not exist "%GUI_DIR%" (
-        echo [kristal-debug-tools] Cloning GUI source for local compile...
-        git clone --depth 1 https://github.com/Bli-AIk/kristal-debug-tools-gui.git "%GUI_DIR%"
-        if errorlevel 1 goto compile-fail
-    ) else (
-        echo [kristal-debug-tools] "%GUI_DIR%" exists but is not a git checkout.
-        goto compile-fail
-    )
+call :prepare-source
+if errorlevel 1 (
+    echo [kristal-debug-tools] gui-dev could not prepare the compatible source checkout.
+    exit /b 1
 )
 set "RELEASE_FLAG="
 if "%MODE%"=="compile-release" set "RELEASE_FLAG=--release"
@@ -111,34 +118,25 @@ call npm run tauri dev -- %RELEASE_FLAG%
 set "DEV_ERR=%ERRORLEVEL%"
 popd
 if "%DEV_ERR%"=="0" exit /b 0
+goto compile-fail-message
+
 :compile-fail
+set "DEV_ERR=%ERRORLEVEL%"
+popd >nul 2>nul
+
+:compile-fail-message
 echo [kristal-debug-tools] Local compile failed (%DEV_ERR%), falling back to release binaries.
+goto download
 
 :download
 if exist "%DL_EXE%" if exist "%DL_SIDE%" if exist "%DL_SUMS%" goto check-version
 goto need-download
 
 :check-version
-set "LATEST="
-for /f "usebackq delims=" %%V in (`powershell -NoProfile -Command "try { (Invoke-RestMethod -Uri 'https://api.github.com/repos/Bli-AIk/kristal-debug-tools-gui/releases/latest' -Headers @{'User-Agent'='kristal-debug-tools-gui'} -TimeoutSec 10).tag_name } catch { '' }"`) do set "LATEST=%%V"
-if not defined LATEST (
-    echo [kristal-debug-tools] Could not check for updates; verifying the cached build...
-    call :verify-cached
-    if errorlevel 1 (
-        echo [kristal-debug-tools] Cached build failed checksum verification, re-downloading.
-        goto need-download
-    )
-    rem Read the cached version on its own line so it is expanded before
-    rem the message below runs (no delayed expansion needed).
-    set "CACHED="
-    if exist "%DL_DIR%\version.txt" set /p CACHED=<"%DL_DIR%\version.txt"
-    if defined CACHED goto run-cached-known
-    goto run-cached-unknown
-)
 if not exist "%DL_DIR%\version.txt" goto need-download
 set "CACHED="
 set /p CACHED=<"%DL_DIR%\version.txt"
-if "%CACHED%"=="%LATEST%" (
+if /i "%CACHED%"=="%GUI_RELEASE_TAG%" (
     call :verify-cached
     if errorlevel 1 (
         echo [kristal-debug-tools] Cached build failed checksum verification, re-downloading.
@@ -148,72 +146,28 @@ if "%CACHED%"=="%LATEST%" (
 )
 goto need-download
 
-:run-cached-known
-echo [kristal-debug-tools] Using cached build %CACHED%.
-goto run-cached
-
-:run-cached-unknown
-echo [kristal-debug-tools] Using cached build ^(version unknown^).
-goto run-cached
-
 :run-cached
-"%DL_EXE%" %*
+echo [kristal-debug-tools] Using verified GUI release %GUI_RELEASE_TAG% for Kristal %ENGINE_VERSION%.
+if defined MODE (
+    "%DL_EXE%"
+) else (
+    "%DL_EXE%" %*
+)
 exit /b %ERRORLEVEL%
 
 :need-download
-echo [kristal-debug-tools] Downloading the GUI (latest release)...
+echo [kristal-debug-tools] Downloading GUI release %GUI_RELEASE_TAG% for Kristal %ENGINE_VERSION%...
 call :download-assets "%RELEASE_BASE%"
-if errorlevel 1 goto fallback
-rem Record the version we actually downloaded: the PowerShell downloader
-rem resolves the tag from the redirect URL when it can; otherwise fall back
-rem to the API tag (LATEST). Writing version.txt unconditionally lets the
-rem next run detect upgrades even when the API check failed this time.
-if not exist "%DL_DIR%\version.txt" if defined LATEST (
-    >"%DL_DIR%\version.txt" echo %LATEST%
-)
-"%DL_EXE%" %*
-exit /b %ERRORLEVEL%
-
-:fallback
-rem The latest release's assets are not uploaded yet (e.g. CI is still
-rem building them), so fall back to the previous release.
-set "PREV="
-for /f "usebackq delims=" %%V in (`powershell -NoProfile -Command "$r=Invoke-RestMethod -Uri 'https://api.github.com/repos/Bli-AIk/kristal-debug-tools-gui/releases?per_page=10' -Headers @{'User-Agent'='kristal-debug-tools-gui'} -TimeoutSec 10; $v=@($r).Where({ -not $_.draft -and -not $_.prerelease }); if($v.Count -ge 2){ $v[1].tag_name }"`) do set "PREV=%%V"
-if not defined PREV (
-    echo [kristal-debug-tools] The latest release is not ready and no previous release was found. Try again later.
-    exit /b 1
-)
-if defined LATEST (
-    echo [kristal-debug-tools] The latest release ^(%LATEST%^) is not ready yet; falling back to previous release %PREV%.
-) else (
-    echo [kristal-debug-tools] The latest release is not ready yet; falling back to previous release %PREV%.
-)
-
-rem If the previous release is already cached and still intact, use it
-rem without re-downloading (still shown, and re-checked next run).
-set "CACHED="
-if exist "%DL_DIR%\version.txt" set /p CACHED=<"%DL_DIR%\version.txt"
-if "%CACHED%"=="%PREV%" if exist "%DL_EXE%" if exist "%DL_SIDE%" if exist "%DL_SUMS%" (
-    call :verify-cached
-    if not errorlevel 1 (
-        echo [kristal-debug-tools] Previous release %PREV% is already downloaded and verified.
-        goto run-cached
-    )
-)
-echo [kristal-debug-tools] Downloading previous release %PREV%...
-call :download-assets "https://github.com/Bli-AIk/kristal-debug-tools-gui/releases/download/%PREV%/"
 if errorlevel 1 (
-    echo [kristal-debug-tools] Could not download the latest or previous release. Check your network or build locally.
+    echo [kristal-debug-tools] Could not download or verify GUI release %GUI_RELEASE_TAG%. Check your network or build locally.
     exit /b 1
 )
->"%DL_DIR%\version.txt" echo %PREV%
-"%DL_EXE%" %*
-exit /b %ERRORLEVEL%
+>"%DL_DIR%\version.txt" echo %GUI_RELEASE_TAG%
+goto run-cached
 
 rem Downloads one release's three assets to .tmp names, SHA256-verifies them
-rem against the checksums file, then moves them into place atomically. Also
-rem writes version.txt when the release tag can be resolved from the redirect
-rem URL. %1 = base URL of the release assets.
+rem against the checksums file, then moves them into place atomically.
+rem %1 = base URL of the selected release assets.
 :download-assets
 if not exist "%DL_DIR%" mkdir "%DL_DIR%"
 del /q "%DL_DIR%\*.tmp" 2>nul
@@ -222,15 +176,12 @@ powershell -NoProfile -Command ^
   "$base='%~1';" ^
   "$dir='%DL_DIR%';" ^
   "$files=@('kristal-debug-tools-gui-windows-%ARCH%.exe','kristal-run-windows-%ARCH%.exe','checksums-windows-%ARCH%.txt');" ^
-  "$tag=$null;" ^
-  "foreach($f in $files){ $r=Invoke-WebRequest -Uri ($base+$f) -OutFile (Join-Path $dir ($f+'.tmp')) -UseBasicParsing;" ^
-  "  if($null -eq $tag){ try { Invoke-WebRequest -Uri ($base+$f) -Method Head -MaximumRedirection 0 -UseBasicParsing | Out-Null } catch { $resp=$_.Exception.Response; if($resp -and $resp.Headers){ $loc=$resp.Headers['Location']; if($loc){ $m=[regex]::Match([string]$loc,'/releases/download/([^/]+)/'); if($m.Success){ $tag=$m.Groups[1].Value } } } } } };" ^
+  "foreach($f in $files){ Invoke-WebRequest -Uri ($base+$f) -OutFile (Join-Path $dir ($f+'.tmp')) -UseBasicParsing };" ^
   "$sums=Get-Content (Join-Path $dir ('checksums-windows-%ARCH%.txt'+'.tmp'));" ^
   "foreach($f in $files){ if($f -eq 'checksums-windows-%ARCH%.txt'){continue};" ^
   "  $h=(Get-FileHash (Join-Path $dir ($f+'.tmp')) -Algorithm SHA256).Hash.ToLower();" ^
   "  if(-not ($sums -match $h)){ Write-Error ('checksum mismatch: '+$f); exit 1 } };" ^
-  "foreach($f in $files){ Move-Item -Force (Join-Path $dir ($f+'.tmp')) (Join-Path $dir $f) };" ^
-  "if($tag){ Set-Content -Path (Join-Path $dir 'version.txt') -Value $tag }"
+  "foreach($f in $files){ Move-Item -Force (Join-Path $dir ($f+'.tmp')) (Join-Path $dir $f) }"
 exit /b %ERRORLEVEL%
 
 rem Verifies the cached binaries against the checksums file. Sets errorlevel
@@ -241,6 +192,74 @@ powershell -NoProfile -Command ^
   "$ok=$true;" ^
   "foreach($f in @('%DL_EXE%','%DL_SIDE%')){ $h=(Get-FileHash $f -Algorithm SHA256).Hash.ToLower(); if(-not ($s -match $h)){ $ok=$false } };" ^
   "if($ok){ exit 0 } else { Write-Error 'cached GUI failed checksum verification'; exit 1 }"
+exit /b %ERRORLEVEL%
+
+:select-version
+if not defined ENGINE_ROOT (
+    echo [kristal-debug-tools] Could not detect a Kristal VERSION. GUI download is supported only for Kristal 0.10.0 and 0.11.0-dev.
+    exit /b 1
+)
+if not exist "%ENGINE_ROOT%\VERSION" (
+    echo [kristal-debug-tools] Could not detect a Kristal VERSION. GUI download is supported only for Kristal 0.10.0 and 0.11.0-dev.
+    exit /b 1
+)
+set "ENGINE_VERSION="
+set /p ENGINE_VERSION=<"%ENGINE_ROOT%\VERSION"
+if /i "%ENGINE_VERSION%"=="0.10.0" goto version-010
+if /i "%ENGINE_VERSION%"=="v0.10.0" goto version-010
+if /i "%ENGINE_VERSION%"=="0.11.0-dev" goto version-011
+if /i "%ENGINE_VERSION%"=="v0.11.0-dev" goto version-011
+echo [kristal-debug-tools] Unsupported Kristal VERSION "%ENGINE_VERSION%". GUI download is supported only for Kristal 0.10.0 and 0.11.0-dev.
+exit /b 1
+
+:version-010
+set "GUI_RELEASE_TAG=v0.1.5"
+set "GUI_SOURCE_REF=v0.1.5"
+set "GUI_SOURCE_KIND=tag"
+exit /b 0
+
+:version-011
+set "GUI_RELEASE_TAG=v0.2.0"
+set "GUI_SOURCE_REF=feat/v0.11-dev"
+set "GUI_SOURCE_KIND=branch"
+exit /b 0
+
+:prepare-source
+if not exist "%GUI_DIR%\.git" (
+    if exist "%GUI_DIR%" (
+        echo [kristal-debug-tools] "%GUI_DIR%" exists but is not a git checkout; remove it or clone manually.
+        exit /b 1
+    )
+    echo [kristal-debug-tools] Cloning GUI source at %GUI_SOURCE_REF%...
+    git clone --depth 1 --branch "%GUI_SOURCE_REF%" "%GUI_REPO%" "%GUI_DIR%"
+    exit /b %ERRORLEVEL%
+)
+for /f "usebackq delims=" %%S in (`git -C "%GUI_DIR%" status --porcelain`) do (
+    echo [kristal-debug-tools] "%GUI_DIR%" has local changes; gui-dev will not switch or update it.
+    exit /b 1
+)
+if /i "%GUI_SOURCE_KIND%"=="tag" goto prepare-source-tag
+git -C "%GUI_DIR%" fetch origin "refs/heads/%GUI_SOURCE_REF%:refs/remotes/origin/%GUI_SOURCE_REF%"
+if errorlevel 1 exit /b 1
+git -C "%GUI_DIR%" show-ref --verify --quiet "refs/heads/%GUI_SOURCE_REF%"
+if errorlevel 1 (
+    git -C "%GUI_DIR%" switch --create "%GUI_SOURCE_REF%" "origin/%GUI_SOURCE_REF%"
+) else (
+    git -C "%GUI_DIR%" switch "%GUI_SOURCE_REF%"
+)
+if errorlevel 1 exit /b 1
+git -C "%GUI_DIR%" merge-base --is-ancestor HEAD "origin/%GUI_SOURCE_REF%"
+if errorlevel 1 (
+    echo [kristal-debug-tools] "%GUI_DIR%" cannot fast-forward to %GUI_SOURCE_REF%; gui-dev will not overwrite local commits.
+    exit /b 1
+)
+git -C "%GUI_DIR%" merge --ff-only "origin/%GUI_SOURCE_REF%"
+exit /b %ERRORLEVEL%
+
+:prepare-source-tag
+git -C "%GUI_DIR%" fetch origin "refs/tags/%GUI_SOURCE_REF%:refs/tags/%GUI_SOURCE_REF%"
+if errorlevel 1 exit /b 1
+git -C "%GUI_DIR%" switch --detach "%GUI_SOURCE_REF%"
 exit /b %ERRORLEVEL%
 
 rem Walk up from a directory for the nearest Kristal engine (main.lua +
