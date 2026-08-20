@@ -1,3 +1,4 @@
+---@class KristalDebugTools
 local lib = {}
 
 local LIB_ID = "kristal-debug-tools"
