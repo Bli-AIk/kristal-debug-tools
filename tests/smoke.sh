@@ -145,8 +145,8 @@ printf '%s\n' '0.11.0-dev' > "$selection_root/engine/VERSION"
 output=$(KRISTAL_DEBUG_TOOLS_GUI_PRINT_SELECTION=1 KRISTAL_ROOT="$selection_root/engine" "$root/bin/gui-download.sh" "$selection_root/project")
 printf '%s\n' "$output" | grep -Fqx 'ENGINE_VERSION=0.11.0-dev'
 printf '%s\n' "$output" | grep -Fqx 'GUI_RELEASE_TAG=v0.2.0'
-printf '%s\n' "$output" | grep -Fqx 'GUI_SOURCE_REF=feat/v0.11-dev'
-printf '%s\n' "$output" | grep -Fqx 'GUI_SOURCE_KIND=branch'
+printf '%s\n' "$output" | grep -Fqx 'GUI_SOURCE_REF=v0.2.0'
+printf '%s\n' "$output" | grep -Fqx 'GUI_SOURCE_KIND=tag'
 printf '%s\n' "$output" | grep -Fqx 'GUI_RELEASE_URL=https://github.com/Bli-AIk/kristal-debug-tools-gui/releases/download/v0.2.0'
 
 printf '%s\n' '0.12.0-dev' > "$selection_root/engine/VERSION"

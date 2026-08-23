@@ -82,8 +82,8 @@ select_gui_version() {
             ;;
         0.11.0-dev|v0.11.0-dev)
             GUI_RELEASE_TAG="v0.2.0"
-            GUI_SOURCE_REF="feat/v0.11-dev"
-            GUI_SOURCE_KIND="branch"
+            GUI_SOURCE_REF="v0.2.0"
+            GUI_SOURCE_KIND="tag"
             ;;
         *)
             echo "[kristal-debug-tools] Unsupported Kristal VERSION \"$ENGINE_VERSION\". GUI download is supported only for Kristal 0.10.0 and 0.11.0-dev." >&2

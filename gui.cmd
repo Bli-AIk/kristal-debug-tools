@@ -220,8 +220,8 @@ exit /b 0
 
 :version-011
 set "GUI_RELEASE_TAG=v0.2.0"
-set "GUI_SOURCE_REF=feat/v0.11-dev"
-set "GUI_SOURCE_KIND=branch"
+set "GUI_SOURCE_REF=v0.2.0"
+set "GUI_SOURCE_KIND=tag"
 exit /b 0
 
 :prepare-source
