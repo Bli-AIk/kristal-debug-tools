@@ -171,15 +171,17 @@ rem %1 = base URL of the selected release assets.
 :download-assets
 if not exist "%DL_DIR%" mkdir "%DL_DIR%"
 del /q "%DL_DIR%\*.tmp" 2>nul
+rem Use .NET directly: some Windows PowerShell installations do not expose the hash cmdlet.
 powershell -NoProfile -Command ^
   "$ProgressPreference='SilentlyContinue';" ^
   "$base='%~1';" ^
   "$dir='%DL_DIR%';" ^
   "$files=@('kristal-debug-tools-gui-windows-%ARCH%.exe','kristal-run-windows-%ARCH%.exe','checksums-windows-%ARCH%.txt');" ^
   "foreach($f in $files){ Invoke-WebRequest -Uri ($base+$f) -OutFile (Join-Path $dir ($f+'.tmp')) -UseBasicParsing };" ^
+  "function Get-KDTFileSha256([string]$path){$stream=$null;$algorithm=$null;try{$stream=[System.IO.File]::OpenRead($path);$algorithm=[System.Security.Cryptography.SHA256]::Create();return ([System.BitConverter]::ToString($algorithm.ComputeHash($stream))).Replace('-','').ToLowerInvariant()}finally{if($null -ne $algorithm){$algorithm.Dispose()};if($null -ne $stream){$stream.Dispose()}}};" ^
   "$sums=Get-Content (Join-Path $dir ('checksums-windows-%ARCH%.txt'+'.tmp'));" ^
   "foreach($f in $files){ if($f -eq 'checksums-windows-%ARCH%.txt'){continue};" ^
-  "  $h=(Get-FileHash (Join-Path $dir ($f+'.tmp')) -Algorithm SHA256).Hash.ToLower();" ^
+  "  $h=Get-KDTFileSha256 (Join-Path $dir ($f+'.tmp'));" ^
   "  if(-not ($sums -match $h)){ Write-Error ('checksum mismatch: '+$f); exit 1 } };" ^
   "foreach($f in $files){ Move-Item -Force (Join-Path $dir ($f+'.tmp')) (Join-Path $dir $f) }"
 exit /b %ERRORLEVEL%
@@ -188,9 +190,10 @@ rem Verifies the cached binaries against the checksums file. Sets errorlevel
 rem to 0 when both pass, 1 otherwise.
 :verify-cached
 powershell -NoProfile -Command ^
+  "function Get-KDTFileSha256([string]$path){$stream=$null;$algorithm=$null;try{$stream=[System.IO.File]::OpenRead($path);$algorithm=[System.Security.Cryptography.SHA256]::Create();return ([System.BitConverter]::ToString($algorithm.ComputeHash($stream))).Replace('-','').ToLowerInvariant()}finally{if($null -ne $algorithm){$algorithm.Dispose()};if($null -ne $stream){$stream.Dispose()}}};" ^
   "$s=Get-Content '%DL_SUMS%';" ^
   "$ok=$true;" ^
-  "foreach($f in @('%DL_EXE%','%DL_SIDE%')){ $h=(Get-FileHash $f -Algorithm SHA256).Hash.ToLower(); if(-not ($s -match $h)){ $ok=$false } };" ^
+  "foreach($f in @('%DL_EXE%','%DL_SIDE%')){ $h=Get-KDTFileSha256 $f; if(-not ($s -match $h)){ $ok=$false } };" ^
   "if($ok){ exit 0 } else { Write-Error 'cached GUI failed checksum verification'; exit 1 }"
 exit /b %ERRORLEVEL%
 
