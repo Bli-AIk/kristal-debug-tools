@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.4](https://github.com/Bli-AIk/kristal-debug-tools/compare/v0.1.3...v0.1.4) (2026-08-24)
+
+
+### Bug Fixes
+
+* **gui:** avoid unavailable Windows hash cmdlet ([d755cbe](https://github.com/Bli-AIk/kristal-debug-tools/commit/d755cbedf67a952ff522e5757485bdb75e002eac))
+* **gui:** pin 0.11 source checkout to release tag ([da49e1c](https://github.com/Bli-AIk/kristal-debug-tools/commit/da49e1ca8eb3125f018481a9a2d46b54806adb33))
+
 ## [0.1.3](https://github.com/Bli-AIk/kristal-debug-tools/compare/v0.1.2...v0.1.3) (2026-08-18)
 
 
