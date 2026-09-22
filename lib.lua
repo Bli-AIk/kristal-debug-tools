@@ -288,6 +288,13 @@ function lib:init()
     if not self.options.enabled then
         return
     end
+
+    -- Announced through the engine's "System" logger; kristal-i18n keys off
+    -- this exact English wording to translate it (see its localizeConsoleSegments).
+    if Logging and Logging.info then
+        Logging.info("Enabled library " .. self.info.id .. ".")
+    end
+
     self:installModOptionHook()
     self:installBattleHooks()
 end
